@@ -6,6 +6,7 @@ import com.jcraft.jsch.JSchException;
 import com.jcraft.jsch.Session;
 import io.kofrezo.webserverconnector.interfaces.WebserverConnectorService;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Serializable;
@@ -18,86 +19,86 @@ import org.apache.logging.log4j.Logger;
 
 /**
  * Apache SSH Webserver Connector Implementation
- * 
- * Concrete implementation of webserver connector to setup apache webserver
- * via SSH connection.
- * 
+ *
+ * Concrete implementation of webserver connector to setup apache webserver via SSH connection.
+ *
  * @author Daniel Kröger <daniel.kroeger@kofrezo.io>
  * @version 08.08.2015
  */
 @Named
 @RequestScoped
 public class ApacheSSHConnectorService implements WebserverConnectorService, Serializable {
-    
+
     private static final Logger LOGGER = LogManager.getLogger(ApacheSSHConnectorService.class);
-    
+
     private String user;
     private String host;
     private int port;
     private String publickey;
     private String privatekey;
     private String passphrase;
-               
+
+    private String template;
+
     /**
      * Execute Command Via SSH
-     * 
+     *
      * Executes a command via ssh on the remote server.
-     * 
+     *
      * @param command
      * @return result from stdout
      */
-    protected String execute(String command)
-    {
-        if (this.isValid()) {            
-            try {                      
-                JSch jsch = new JSch();            
-                jsch.addIdentity(this.privatekey, this.publickey, this.passphrase.getBytes());           
+    protected String execute(String command) {
+        if (this.isValid()) {
+            try {
+                JSch jsch = new JSch();
+                jsch.addIdentity(this.privatekey, this.publickey, this.passphrase.getBytes());
 
                 Session session = jsch.getSession(this.user, this.host, this.port);
                 session.setConfig("StrictHostKeyChecking", "no");
                 session.connect();
 
-                ChannelExec channel = (ChannelExec)session.openChannel("exec");
+                ChannelExec channel = (ChannelExec) session.openChannel("exec");
                 channel.setCommand(command);
                 channel.setErrStream(System.err);
-                InputStream in = channel.getInputStream();            
+                InputStream in = channel.getInputStream();
                 channel.connect();
 
                 byte[] data = new byte[1024];
                 StringBuilder stdout = new StringBuilder();
-                while(true) {
+                while (true) {
                     while (in.available() > 0) {
-                        int read = in.read(data,0 ,1024);
-                        if (read < 0) 
-                            break;               
-                        stdout.append(new String(data, 0, read ));
+                        int read = in.read(data, 0, 1024);
+                        if (read < 0) {
+                            break;
+                        }
+                        stdout.append(new String(data, 0, read));
                     }
                     if (channel.isClosed()) {
-                        if (in.available() > 0)
+                        if (in.available() > 0) {
                             continue;
+                        }
                         break;
                     }
                     Thread.sleep(500); // I absolutely don't of this is too much or less
                 }
                 int code = channel.getExitStatus();
 
-                LOGGER.debug("exit code: " + code + " message: " + stdout);                        
+                LOGGER.debug("command: " + command + " exit code: " + code + " message: " + stdout);
 
                 channel.disconnect();
                 session.disconnect();
                 return stdout.toString();
-            } 
-            catch (JSchException | IOException | InterruptedException ex) {
+            } catch (JSchException | IOException | InterruptedException ex) {
                 LOGGER.error(ex.getMessage(), ex);
             }
         }
-        
+
         return "";
     }
-    
+
     @Override
-    public boolean isValid()
-    {
+    public boolean isValid() {
         if (this.user != null && this.host != null && this.port > 0 && this.port < 65537 && this.passphrase != null) {
             File pubKey = new File(this.publickey);
             File privKey = new File(this.privatekey);
@@ -105,18 +106,18 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
                 return true;
             }
         }
-        
+
         LOGGER.debug("connector not ready - missing or wrong credentials for user, host, port, keys or passphrase");
-        
+
         return false;
     }
-        
+
     @Override
-    public String[] getVirtualHosts() {               
+    public String[] getVirtualHosts() {
         String stdout = this.execute("ls /etc/apache2/sites-available");
         return stdout.split("\n");
     }
-    
+
     @Override
     public String[] getVirtualHostsEnabled() {
         String stdout = this.execute("ls /etc/apache2/sites-enabled");
@@ -128,15 +129,17 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
         String[] available = this.getVirtualHosts();
         String[] enabled = this.getVirtualHostsEnabled();
         ArrayList disabled = new ArrayList();
-        
+
         for (String currentAvailable : available) {
             for (String currentEnabled : enabled) {
-                if (currentAvailable.equals(currentEnabled))
+                if (currentAvailable.equals(currentEnabled)) {
                     disabled.add(currentEnabled);
+                }
             }
         }
-        
-        return (String[])disabled.toArray();
+
+        String[] result = new String[disabled.size()];
+        return (String[]) disabled.toArray(result);
     }
 
     @Override
@@ -157,11 +160,27 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
     @Override
     public void disableVirtualHost(String domain) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-    }    
+    }
 
     @Override
     public void setVirtualHostTemplate(String filename) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        File file = new File(filename);
+        if (file.canRead()) {
+            try {
+                FileInputStream fis = new FileInputStream(file);
+
+                byte[] data = new byte[1024];
+                StringBuilder result = new StringBuilder();
+                while (fis.available() > 0) {
+                    int read = fis.read(data, 0, 1024);
+                    result.append(new String(data, 0, read));
+                }
+
+                this.template = result.toString();
+            } catch (IOException ex) {
+                LOGGER.error(ex.getMessage(), ex);
+            }
+        }
     }
 
     @Override

@@ -98,7 +98,7 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
     @Override
     public boolean isValid()
     {
-        if (this.user != null && this.host != null && this.port > 0 && this.port < 65536 && this.passphrase != null) {
+        if (this.user != null && this.host != null && this.port > 0 && this.port < 65537 && this.passphrase != null) {
             File pubKey = new File(this.publickey);
             File privKey = new File(this.privatekey);
             if (pubKey.canRead() && privKey.canRead()) {

@@ -12,6 +12,7 @@ import java.io.InputStream;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashMap;
+import javax.enterprise.context.ApplicationScoped;
 import javax.enterprise.context.RequestScoped;
 import javax.inject.Named;
 import org.apache.logging.log4j.LogManager;
@@ -26,7 +27,7 @@ import org.apache.logging.log4j.Logger;
  * @version 08.08.2015
  */
 @Named
-@RequestScoped
+@ApplicationScoped
 public class ApacheSSHConnectorService implements WebserverConnectorService, Serializable {
 
     private static final Logger LOGGER = LogManager.getLogger(ApacheSSHConnectorService.class);
@@ -144,7 +145,12 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
 
     @Override
     public void createVirtualHost(String domain, String[] aliases) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        String vhost = this.template.replaceAll("%DOMAIN%", domain);
+        String command1 = "echo '" + vhost + "' >> /tmp/" + domain;
+        String command2 = "sudo mv /tmp/" + domain + " /etc/apache2/sites-available/";
+        
+        this.execute(command1);
+        this.execute(command2);
     }
 
     @Override

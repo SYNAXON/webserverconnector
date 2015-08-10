@@ -1,5 +1,6 @@
 package io.kofrezo.webserverconnector.interfaces;
 
+import java.io.InputStream;
 import java.util.HashMap;
 
 /**
@@ -113,4 +114,28 @@ public interface WebserverConnectorService {
      * @param credentials
      */
     public void setAuthenticationCredentials(HashMap<String, String> credentials);
+    
+    /**
+     * Upload Resource To Webserver
+     * 
+     * Upload the given resource to webserver with the same filename.
+     * 
+     * @param domain
+     * @param type
+     * @param filename 
+     */
+    public void upload(String domain, String type, String filename);
+    
+    /**
+     * Upload Resource To Webserver
+     * 
+     * Upload the given resource to webserver from the given inputstream and
+     * use the given name.
+     * 
+     * @param domain
+     * @param type
+     * @param input
+     * @param name
+     */
+    public void upload(String domain, String type, InputStream input, String name);
 }

@@ -7,11 +7,13 @@ import com.jcraft.jsch.Session;
 import io.kofrezo.webserverconnector.interfaces.WebserverConnectorService;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.logging.Level;
 import javax.enterprise.context.RequestScoped;
 import javax.inject.Named;
 import org.apache.logging.log4j.LogManager;
@@ -242,6 +244,73 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
         }
         if (credentials.containsKey("passphrase")) {
             this.passphrase = credentials.get("passphrase");
+        }
+    }
+
+    @Override
+    public void upload(String domain, String type, String filename) {
+        String command1 = "grep -i DocumentRoot /etc/apache2/sites-available/" + domain;
+        String stdout1 = this.execute(command1);
+        
+        if (!stdout1.equals("")) {
+            String[] tmp = stdout1.split("\n");
+            String result = null;
+            for (String current : tmp) {
+                if (!current.toLowerCase().equals("documentroot")) {
+                    result = current;
+                    break;
+                }
+            }
+            
+            if (result != null) {                
+                StringBuilder command2 = new StringBuilder("sudo mkdir ");
+                command2.append(result);
+                command2.append("/");
+                switch(type) {
+                    case WebserverConnectorService.UPLOAD_TYPE_CSS:
+                        command2.append(WebserverConnectorService.UPLOAD_TYPE_CSS);
+                        break;
+                    case WebserverConnectorService.UPLOAD_TYPE_JS:
+                        command2.append(WebserverConnectorService.UPLOAD_TYPE_JS);
+                        break;
+                    default:
+                        command2.append(WebserverConnectorService.UPLOAD_TYPE_OTHER);
+                        break;
+                }               
+                String stdout2 = this.execute(command2.toString());
+                                
+                File file = new File(filename);
+                if (file.canRead()) {
+                    String name = file.getName().replace("\\.tmp$", "");
+                    // @TODO upload resource via scp ...
+                }
+            }
+        }
+    }
+
+    @Override
+    public void upload(String domain, String type, InputStream input, String name) {
+        try {
+            File file = File.createTempFile(name, null);
+            if (file.canWrite()) {                
+                byte[] buffer = new byte[1024];
+                FileOutputStream output = new FileOutputStream(file);
+                while(true) {
+                    int read = input.read(buffer);
+                    if (read > 0) {
+                        output.write(buffer);
+                    }
+                    else {
+                        break;
+                    }
+                }
+                output.close();
+            }
+            this.upload(domain, type, file.getAbsolutePath());
+            file.delete();
+        } 
+        catch (IOException ex) {
+            LOGGER.error(ex.getMessage(), ex);
         }
     }
 }

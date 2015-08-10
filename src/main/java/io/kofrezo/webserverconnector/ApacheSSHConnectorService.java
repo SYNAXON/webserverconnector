@@ -12,7 +12,6 @@ import java.io.InputStream;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashMap;
-import javax.enterprise.context.ApplicationScoped;
 import javax.enterprise.context.RequestScoped;
 import javax.inject.Named;
 import org.apache.logging.log4j.LogManager;
@@ -24,13 +23,17 @@ import org.apache.logging.log4j.Logger;
  * Concrete implementation of webserver connector to setup apache webserver via SSH connection.
  *
  * @author Daniel Kröger <daniel.kroeger@kofrezo.io>
- * @version 08.08.2015
+ * @created Aug 8, 2015
  */
 @Named
-@ApplicationScoped
+@RequestScoped
 public class ApacheSSHConnectorService implements WebserverConnectorService, Serializable {
 
     private static final Logger LOGGER = LogManager.getLogger(ApacheSSHConnectorService.class);
+
+    private String[] available;
+    private String[] enabled;
+    private String[] disabled;
 
     private String user;
     private String host;
@@ -115,57 +118,88 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
 
     @Override
     public String[] getVirtualHosts() {
-        String stdout = this.execute("ls /etc/apache2/sites-available");
-        return stdout.split("\n");
+        if (this.available == null) {
+            String stdout = this.execute("ls /etc/apache2/sites-available");
+            this.available = stdout.split("\n");
+        }
+        return this.available;
     }
 
     @Override
     public String[] getVirtualHostsEnabled() {
-        String stdout = this.execute("ls /etc/apache2/sites-enabled");
-        return stdout.split("\n");
+        if (this.enabled == null) {
+            String stdout = this.execute("ls /etc/apache2/sites-enabled");
+            this.enabled = stdout.split("\n");
+        }
+        return this.enabled;
     }
 
     @Override
     public String[] getVirtualHostsDisabled() {
-        String[] available = this.getVirtualHosts();
-        String[] enabled = this.getVirtualHostsEnabled();
-        ArrayList disabled = new ArrayList();
+        if (this.disabled == null) {
+            ArrayList result = new ArrayList();
 
-        for (String currentAvailable : available) {
-            for (String currentEnabled : enabled) {
-                if (currentAvailable.equals(currentEnabled)) {
-                    disabled.add(currentEnabled);
+            for (String currentAvailable : this.getVirtualHosts()) {
+                for (String currentEnabled : this.getVirtualHostsEnabled()) {
+                    if (currentAvailable.equals(currentEnabled)) {
+                        result.add(currentEnabled);
+                    }
                 }
             }
-        }
 
-        String[] result = new String[disabled.size()];
-        return (String[]) disabled.toArray(result);
+            String[] tmp = new String[result.size()];
+            this.disabled = (String[]) result.toArray(tmp);
+        }
+        return this.disabled;
     }
 
     @Override
     public void createVirtualHost(String domain, String[] aliases) {
         String vhost = this.template.replaceAll("%DOMAIN%", domain);
+
         String command1 = "echo '" + vhost + "' >> /tmp/" + domain;
-        String command2 = "sudo mv /tmp/" + domain + " /etc/apache2/sites-available/";
-        
         this.execute(command1);
+
+        String command2 = "sudo mv /tmp/" + domain + " /etc/apache2/sites-available/";
         this.execute(command2);
+
+        String command3 = "sudo chown root:root /etc/apache2/sites-available/" + domain;
+        this.execute(command3);
+
+        // @TODO setup aliases in vhost template        
+        LOGGER.debug("created new virtual host for domain " + domain);
     }
 
     @Override
     public void deleteVirtualHost(String domain) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        this.disableVirtualHost(domain);
+
+        String command = "sudo rm /etc/apache2/sites-available/" + domain;
+        this.execute(command);
+
+        LOGGER.debug("disabled and deleted virtual host for domain " + domain);
     }
 
     @Override
     public void enableVirtualHost(String domain) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        String command1 = "sudo a2ensite " + domain;
+        this.execute(command1);
+
+        String command2 = "sudo service apache2 reload";
+        this.execute(command2);
+
+        LOGGER.debug("enabled virtual host configuration for domain " + domain);
     }
 
     @Override
     public void disableVirtualHost(String domain) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+        String command1 = "sudo a2dissite " + domain;
+        this.execute(command1);
+
+        String command2 = "sudo service apache2 reload";
+        this.execute(command2);
+
+        LOGGER.debug("disabled virtual host configuration for domain " + domain);
     }
 
     @Override

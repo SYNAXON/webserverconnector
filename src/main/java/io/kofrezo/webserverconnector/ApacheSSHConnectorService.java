@@ -1,5 +1,6 @@
 package io.kofrezo.webserverconnector;
 
+import com.jcraft.jsch.Channel;
 import com.jcraft.jsch.ChannelExec;
 import com.jcraft.jsch.JSch;
 import com.jcraft.jsch.JSchException;
@@ -10,10 +11,11 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.logging.Level;
+import java.util.Stack;
 import javax.enterprise.context.RequestScoped;
 import javax.inject.Named;
 import org.apache.logging.log4j.LogManager;
@@ -103,6 +105,144 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
         return "";
     }
 
+    /**
+     * Copy File To Server
+     *
+     * Copy a file from the local given path to the remote.
+     *
+     * @param localFilename
+     * @param remoteFilename
+     */
+    protected void copy(String localFilename, String remoteFilename) {
+        try {
+            JSch jsch = new JSch();
+            jsch.addIdentity(this.privatekey, this.publickey, this.passphrase.getBytes());
+
+            Session session = jsch.getSession(this.user, this.host, this.port);
+            session.setConfig("StrictHostKeyChecking", "no");
+            session.connect();
+
+            String command = "scp -p -t " + remoteFilename;
+            Channel channel = session.openChannel("exec");
+            ((ChannelExec) channel).setCommand(command);
+
+            OutputStream out = channel.getOutputStream();
+            InputStream in = channel.getInputStream();
+
+            channel.connect();
+            if (!this.isAck(in)) {
+                LOGGER.warn("error while initiating to upload resource " + localFilename);
+                return;
+            }
+
+            File local = new File(localFilename);
+            if (local.canRead()) {
+                // Step 1: Keep Timestamps
+                command = "T " + (local.lastModified() / 1000) + " 0";
+                command += (" " + (local.lastModified() / 1000) + " 0\n");
+                out.write(command.getBytes());
+                out.flush();
+                if (!this.isAck(in)) {
+                    LOGGER.warn("error while uploading meta information for resource " + localFilename);
+                    return;
+                }
+
+                // Step 2: Setup Permissions
+                long filesize = local.length();
+                command = "C0644 " + filesize + " ";
+                if (localFilename.lastIndexOf('/') > 0) {
+                    command += localFilename.substring(localFilename.lastIndexOf('/') + 1);
+                } else {
+                    command += localFilename;
+                }
+                command += "\n";
+                out.write(command.getBytes());
+                out.flush();
+
+                if (!this.isAck(in)) {
+                    LOGGER.warn("error while getting acknowledgement for resource " + localFilename);
+                    return;
+                }
+
+                // Step 3: Upload File
+                FileInputStream fis = new FileInputStream(localFilename);
+                byte[] buffer = new byte[1024];
+                while (true) {
+                    int read = fis.read(buffer, 0, buffer.length);
+                    if (read <= 0) {
+                        break;
+                    }
+                    out.write(buffer, 0, read); //out.flush();
+                }
+                fis.close();
+                
+                // Step 4: Finish Uploading
+                buffer[0] = 0;
+                out.write(buffer, 0, 1);
+                out.flush();
+                
+                if (!this.isAck(in)) {
+                    LOGGER.warn("error while uploading resource " + localFilename);                    
+                }
+                out.close();
+
+                channel.disconnect();
+                session.disconnect();
+            }
+        } 
+        catch (JSchException | IOException ex) {
+            LOGGER.warn(ex.getMessage(), ex);
+        }
+    }
+
+    /**
+     * Check Input Stream For Acknowledgement
+     *
+     * Check the given input stream for acknowledgment or if error.
+     *
+     * @param in     
+     *
+     * @return acknowledged
+     */
+    protected boolean isAck(InputStream in) {
+        try {
+            int result = in.read();
+            if (result <= 0) {
+                return true;
+            } else {
+                return false;
+            }
+        } catch (IOException ex) {
+            LOGGER.warn(ex.getMessage(), ex);
+        }
+        return false;
+    }
+    
+    /**
+     * Return Document Root For Domain
+     * 
+     * Return the document root defined in the virtual host configuration or
+     * null if not available
+     * 
+     * @param domain
+     * @return document root | null
+     */
+    protected String getDocumentRoot(String domain) {
+        String command1 = "grep -i DocumentRoot /etc/apache2/sites-available/" + domain;
+        String stdout1 = this.execute(command1);
+
+        if (!stdout1.equals("")) {
+            String[] tmp = stdout1.split("\n");            
+            for (String current : tmp) {
+                if (!current.toLowerCase().equals("documentroot")) {
+                    return current;                    
+                }
+            }
+        }
+        
+        return null;
+    }
+
     @Override
     public boolean isValid() {
         if (this.user != null && this.host != null && this.port > 0 && this.port < 65537 && this.passphrase != null) {
@@ -119,7 +259,7 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
     }
 
     @Override
-    public String[] getVirtualHosts() {
+    public String[] listVirtualHosts() {
         if (this.available == null) {
             String stdout = this.execute("ls /etc/apache2/sites-available");
             this.available = stdout.split("\n");
@@ -128,7 +268,7 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
     }
 
     @Override
-    public String[] getVirtualHostsEnabled() {
+    public String[] listVirtualHostsEnabled() {
         if (this.enabled == null) {
             String stdout = this.execute("ls /etc/apache2/sites-enabled");
             this.enabled = stdout.split("\n");
@@ -137,12 +277,12 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
     }
 
     @Override
-    public String[] getVirtualHostsDisabled() {
+    public String[] listVirtualHostsDisabled() {
         if (this.disabled == null) {
             ArrayList result = new ArrayList();
 
-            for (String currentAvailable : this.getVirtualHosts()) {
-                for (String currentEnabled : this.getVirtualHostsEnabled()) {
+            for (String currentAvailable : this.listVirtualHosts()) {
+                for (String currentEnabled : this.listVirtualHostsEnabled()) {
                     if (currentAvailable.equals(currentEnabled)) {
                         result.add(currentEnabled);
                     }
@@ -248,69 +388,101 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
     }
 
     @Override
-    public void upload(String domain, String type, String filename) {
-        String command1 = "grep -i DocumentRoot /etc/apache2/sites-available/" + domain;
-        String stdout1 = this.execute(command1);
-        
-        if (!stdout1.equals("")) {
-            String[] tmp = stdout1.split("\n");
-            String result = null;
-            for (String current : tmp) {
-                if (!current.toLowerCase().equals("documentroot")) {
-                    result = current;
+    public void createResource(String domain, String type, String filename, String name) {
+        String documentRoot = this.getDocumentRoot(domain);
+        if (documentRoot != null) {
+            StringBuilder command2 = new StringBuilder("sudo mkdir ");
+            command2.append(documentRoot);
+            command2.append("/");
+            switch (type) {
+                case WebserverConnectorService.UPLOAD_TYPE_CSS:
+                    command2.append(WebserverConnectorService.UPLOAD_TYPE_CSS);
                     break;
-                }
+                case WebserverConnectorService.UPLOAD_TYPE_JS:
+                    command2.append(WebserverConnectorService.UPLOAD_TYPE_JS);
+                    break;
+                default:
+                    command2.append(WebserverConnectorService.UPLOAD_TYPE_OTHER);
+                    break;
             }
-            
-            if (result != null) {                
-                StringBuilder command2 = new StringBuilder("sudo mkdir ");
-                command2.append(result);
-                command2.append("/");
-                switch(type) {
+            String stdout2 = this.execute(command2.toString());
+
+            File file = new File(filename);
+            if (file.canRead()) {
+                switch (type) {
                     case WebserverConnectorService.UPLOAD_TYPE_CSS:
-                        command2.append(WebserverConnectorService.UPLOAD_TYPE_CSS);
-                        break;
-                    case WebserverConnectorService.UPLOAD_TYPE_JS:
-                        command2.append(WebserverConnectorService.UPLOAD_TYPE_JS);
-                        break;
-                    default:
-                        command2.append(WebserverConnectorService.UPLOAD_TYPE_OTHER);
-                        break;
-                }               
-                String stdout2 = this.execute(command2.toString());
-                                
-                File file = new File(filename);
-                if (file.canRead()) {
-                    String name = file.getName().replace("\\.tmp$", "");
-                    // @TODO upload resource via scp ...
-                }
+                    //this.copy(filename, );
+                    break;
+                case WebserverConnectorService.UPLOAD_TYPE_JS:
+                    //command2.append(WebserverConnectorService.UPLOAD_TYPE_JS);
+                    break;
+                default:
+                    //command2.append(WebserverConnectorService.UPLOAD_TYPE_OTHER);
+                    break;
+                }                
             }
-        }
+        }        
     }
 
     @Override
-    public void upload(String domain, String type, InputStream input, String name) {
+    public void createResource(String domain, String type, InputStream input, String name) {
         try {
             File file = File.createTempFile(name, null);
-            if (file.canWrite()) {                
+            if (file.canWrite()) {
                 byte[] buffer = new byte[1024];
                 FileOutputStream output = new FileOutputStream(file);
-                while(true) {
+                while (true) {
                     int read = input.read(buffer);
                     if (read > 0) {
                         output.write(buffer);
-                    }
-                    else {
+                    } else {
                         break;
                     }
                 }
                 output.close();
             }
-            this.upload(domain, type, file.getAbsolutePath());
+            this.createResource(domain, type, file.getAbsolutePath(), name);
             file.delete();
-        } 
-        catch (IOException ex) {
+        } catch (IOException ex) {
             LOGGER.error(ex.getMessage(), ex);
         }
+    }
+
+    @Override
+    public void deleteResource(String domain, String type, String name) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public String[] listResources(String domain, String type) {
+        Stack<String> result = new Stack();
+        String documentRoot = this.getDocumentRoot(domain);
+        
+        if (documentRoot != null) {
+            if (type.equals(WebserverConnectorService.UPLOAD_TYPE_CSS) || type == null) {
+                String command = "ls " + documentRoot + "/" + WebserverConnectorService.UPLOAD_TYPE_CSS + "/";
+                String stdout = this.execute(command);
+                for (String resource : stdout.split("\n")) {
+                    result.push(resource);
+                }
+            }
+            if (type.equals(WebserverConnectorService.UPLOAD_TYPE_JS) || type == null) {
+                String command = "ls " + documentRoot + "/" + WebserverConnectorService.UPLOAD_TYPE_JS + "/";
+                String stdout = this.execute(command);
+                for (String resource : stdout.split("\n")) {
+                    result.push(resource);
+                }
+            }
+            if (type.equals(WebserverConnectorService.UPLOAD_TYPE_OTHER) || type == null) {
+                String command = "ls " + documentRoot + "/" + WebserverConnectorService.UPLOAD_TYPE_OTHER + "/";
+                String stdout = this.execute(command);
+                for (String resource : stdout.split("\n")) {
+                    result.push(resource);
+                }
+            }
+        }
+        
+        String[] tmp = new String[result.size()];
+        return result.toArray(tmp);
     }
 }

@@ -13,6 +13,10 @@ import java.util.HashMap;
  */
 public interface WebserverConnectorService {
 
+    public static final String UPLOAD_TYPE_CSS = "css";
+    public static final String UPLOAD_TYPE_JS = "js";
+    public static final String UPLOAD_TYPE_OTHER = "data";
+    
     /**
      * Check For Valid Setup
      *
@@ -29,7 +33,7 @@ public interface WebserverConnectorService {
      *
      * @return virtual hosts available
      */
-    public String[] getVirtualHosts();
+    public String[] listVirtualHosts();
 
     /**
      * Get Virtual Hosts Enabled
@@ -38,7 +42,7 @@ public interface WebserverConnectorService {
      *
      * @return virtual hosts enabled
      */
-    public String[] getVirtualHostsEnabled();
+    public String[] listVirtualHostsEnabled();
 
     /**
      * Get Virtual Hosts Disabled
@@ -47,7 +51,7 @@ public interface WebserverConnectorService {
      *
      * @return virtual hosts disabled
      */
-    public String[] getVirtualHostsDisabled();
+    public String[] listVirtualHostsDisabled();
 
     /**
      * Create New Virtual Host
@@ -123,8 +127,9 @@ public interface WebserverConnectorService {
      * @param domain
      * @param type
      * @param filename 
+     * @param name
      */
-    public void upload(String domain, String type, String filename);
+    public void createResource(String domain, String type, String filename, String name);
     
     /**
      * Upload Resource To Webserver
@@ -132,10 +137,41 @@ public interface WebserverConnectorService {
      * Upload the given resource to webserver from the given inputstream and
      * use the given name.
      * 
+     * Overwrite resource if it already exists and has changed.
+     * 
      * @param domain
      * @param type
      * @param input
      * @param name
      */
-    public void upload(String domain, String type, InputStream input, String name);
+    public void createResource(String domain, String type, InputStream input, String name);
+    
+    /**
+     * Delete Resource From Webserver
+     * 
+     * Delete the given resource identified by name and type at document root
+     * from the webserver.
+     * 
+     * Do nothing if the resource does not exist.
+     * 
+     * @param domain
+     * @param type
+     * @param name 
+     */
+    public void deleteResource(String domain, String type, String name);
+    
+    /**
+     * Get Available Resources For Type
+     * 
+     * List all available resources for the given doman and type.
+     * 
+     * Type may be null or a resource constant. If type is null all resources
+     * are returned.
+     * 
+     * @param domain
+     * @param type
+     * 
+     * @return resource list
+     */
+    public String[] listResources(String domain, String type);
 }

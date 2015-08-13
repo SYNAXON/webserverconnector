@@ -15,6 +15,7 @@ public interface WebserverConnectorService {
 
     public static final String UPLOAD_TYPE_CSS = "css";
     public static final String UPLOAD_TYPE_JS = "js";
+    public static final String UPLOAD_TYPE_IMG = "img";
     public static final String UPLOAD_TYPE_OTHER = "data";
     
     /**

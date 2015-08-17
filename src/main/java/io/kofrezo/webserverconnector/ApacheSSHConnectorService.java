@@ -24,7 +24,8 @@ import org.apache.logging.log4j.Logger;
 /**
  * Apache SSH Webserver Connector Implementation
  *
- * Concrete implementation of webserver connector to setup apache webserver via SSH connection.
+ * Concrete implementation of webserver connector to setup apache webserver via
+ * SSH connection.
  *
  * @author Daniel Kröger <daniel.kroeger@kofrezo.io>
  * @created Aug 8, 2015
@@ -60,7 +61,7 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
         if (this.isValid()) {
             try {
                 long start = System.currentTimeMillis();
-                
+
                 JSch jsch = new JSch();
                 jsch.addIdentity(this.privatekey, this.publickey, this.passphrase.getBytes());
 
@@ -93,13 +94,13 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
                     Thread.sleep(500); // I absolutely don't of this is too much or less
                 }
                 int code = channel.getExitStatus();
-               
+
                 channel.disconnect();
                 session.disconnect();
-                                
+
                 LOGGER.debug("command: " + command + " exit code: " + code + " message: " + stdout);
                 LOGGER.debug("took " + (System.currentTimeMillis() - start) + " ms to execute");
-                
+
                 return stdout.toString();
             } catch (JSchException | IOException | InterruptedException ex) {
                 LOGGER.error(ex.getMessage(), ex);
@@ -179,22 +180,21 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
                     out.write(buffer, 0, read); //out.flush();
                 }
                 fis.close();
-                
+
                 // Step 4: Finish Uploading
                 buffer[0] = 0;
                 out.write(buffer, 0, 1);
                 out.flush();
-                
+
                 if (!this.isAck(in)) {
-                    LOGGER.warn("error while uploading resource " + localFilename);                    
+                    LOGGER.warn("error while uploading resource " + localFilename);
                 }
                 out.close();
 
                 channel.disconnect();
                 session.disconnect();
             }
-        } 
-        catch (JSchException | IOException ex) {
+        } catch (JSchException | IOException ex) {
             LOGGER.warn(ex.getMessage(), ex);
         }
     }
@@ -204,7 +204,7 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
      *
      * Check the given input stream for acknowledgment or if error.
      *
-     * @param in     
+     * @param in
      *
      * @return acknowledged
      */
@@ -221,13 +221,13 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
         }
         return false;
     }
-    
+
     /**
      * Return Document Root For Domain
-     * 
+     *
      * Return the document root defined in the virtual host configuration or
      * null if not available
-     * 
+     *
      * @param domain
      * @return document root | null
      */
@@ -238,7 +238,7 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
         if (!stdout.equals("")) {
             return stdout.replace("DocumentRoot", "").trim();
         }
-        
+
         return null;
     }
 
@@ -261,7 +261,11 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
     public String[] listVirtualHosts() {
         if (this.available == null) {
             String stdout = this.execute("ls /etc/apache2/sites-available");
-            this.available = stdout.split("\n");
+            if (stdout.length() > 0) {
+                this.available = stdout.split("\n");
+            } else {
+                this.available = new String[]{};
+            }
         }
         return this.available;
     }
@@ -297,22 +301,27 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
     @Override
     public void createVirtualHost(String domain, String[] aliases) {
         String vhost = this.template.replaceAll("%DOMAIN%", domain);
-
-        StringBuilder command = new StringBuilder();
-        command.append("echo '").append(vhost).append("' >> /tmp/").append(domain).append(" && ");
-        command.append("sudo mv /tmp/").append(domain).append(" /etc/apache2/sites-available/ &&");
-        command.append("sudo chown root:root /etc/apache2/sites-available/").append(domain).append(" &&");        
-        String documentRoot = this.getDocumentRoot(domain);
-        command.append("sudo mkdir -p ").append(documentRoot).append("/" + WebserverConnectorService.UPLOAD_TYPE_CSS + " &&");
-        command.append("sudo mkdir -p " + documentRoot + "/" + WebserverConnectorService.UPLOAD_TYPE_IMG + " &&");
-        command.append("sudo mkdir -p ").append(documentRoot).append("/" + WebserverConnectorService.UPLOAD_TYPE_JS + " &&");       
-        command.append("sudo mkdir -p ").append(documentRoot).append("/" + WebserverConnectorService.UPLOAD_TYPE_OTHER + " &&");
-        command.append("sudo chown -R www-data:www-data " + documentRoot);       
-                
         // @TODO setup aliases in vhost template
-        
-        this.execute(command.toString());
-        
+
+        String command1 = "echo '" + vhost + "' >> /tmp/" + domain;
+        this.execute(command1);
+
+        String command2 = "sudo mv /tmp/" + domain + " /etc/apache2/sites-available/";
+        this.execute(command2);
+
+        String command3 = "sudo chown root:root /etc/apache2/sites-available/" + domain;
+        this.execute(command3);
+
+        String command4 = "sudo mkdir -p " + this.getDocumentRoot(domain) + "/{";
+        command4 += WebserverConnectorService.UPLOAD_TYPE_CSS + ",";
+        command4 += WebserverConnectorService.UPLOAD_TYPE_IMG + ",";
+        command4 += WebserverConnectorService.UPLOAD_TYPE_JS + ",";
+        command4 += WebserverConnectorService.UPLOAD_TYPE_OTHER + "}";
+        this.execute(command4);
+
+        String command5 = "sudo chown -R www-data:www-data " + this.getDocumentRoot(domain);
+        this.execute(command5);
+
         LOGGER.debug("created new virtual host for domain " + domain);
     }
 
@@ -320,48 +329,40 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
     public void deleteVirtualHost(String domain) {
         this.disableVirtualHost(domain);
 
-        String command = "sudo rm -rf " + this.getDocumentRoot(domain);
-        command += "sudo rm /etc/apache2/sites-available/" + domain;
-        this.execute(command);                
-        
+        String command1 = "sudo rm -rf " + this.getDocumentRoot(domain);
+        this.execute(command1);
+
+        String command2 = "sudo rm /etc/apache2/sites-available/" + domain;
+        this.execute(command2);
+
         LOGGER.debug("disabled and deleted virtual host for domain " + domain);
     }
 
     @Override
     public void enableVirtualHost(String domain) {
-        String command = "sudo a2ensite " + domain + " && sudo service apache2 reload";
-        this.execute(command);
+        String command1 = "sudo a2ensite " + domain;
+        this.execute(command1);
+
+        String command2 = "sudo service apache2 reload";
+        this.execute(command2);
 
         LOGGER.debug("enabled virtual host configuration for domain " + domain);
     }
 
     @Override
     public void disableVirtualHost(String domain) {
-        String command = "sudo a2dissite " + domain + " && sudo service apache2 reload";
-        this.execute(command);
+        String command1 = "sudo a2dissite " + domain;
+        this.execute(command1);
+
+        String command2 = "sudo service apache2 reload";
+        this.execute(command2);
 
         LOGGER.debug("disabled virtual host configuration for domain " + domain);
     }
 
     @Override
-    public void setVirtualHostTemplate(String filename) {
-        File file = new File(filename);
-        if (file.canRead()) {
-            try {
-                FileInputStream fis = new FileInputStream(file);
-
-                byte[] data = new byte[1024];
-                StringBuilder result = new StringBuilder();
-                while (fis.available() > 0) {
-                    int read = fis.read(data, 0, 1024);
-                    result.append(new String(data, 0, read));
-                }
-
-                this.template = result.toString();
-            } catch (IOException ex) {
-                LOGGER.error(ex.getMessage(), ex);
-            }
-        }
+    public void setVirtualHostTemplate(String template) {
+        this.template = template;
     }
 
     @Override
@@ -389,25 +390,25 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
     @Override
     public void createResource(String domain, String type, String filename, String name) {
         String documentRoot = this.getDocumentRoot(domain);
-        if (documentRoot != null) {            
+        if (documentRoot != null) {
             File file = new File(filename);
             if (file.canRead()) {
                 switch (type) {
                     case WebserverConnectorService.UPLOAD_TYPE_CSS:
-                    this.copy(filename, documentRoot + "/" + WebserverConnectorService.UPLOAD_TYPE_CSS + "/" + name);
-                    break;
-                case WebserverConnectorService.UPLOAD_TYPE_JS:
-                    this.copy(filename, documentRoot + "/" + WebserverConnectorService.UPLOAD_TYPE_JS + "/" + name);
-                    break;
-                case WebserverConnectorService.UPLOAD_TYPE_IMG:
-                    this.copy(filename, documentRoot + "/" + WebserverConnectorService.UPLOAD_TYPE_IMG + "/" + name);
-                    break;                
-                default:
-                    this.copy(filename, documentRoot + "/" + WebserverConnectorService.UPLOAD_TYPE_OTHER + "/" + name);
-                    break;
-                }                
+                        this.copy(filename, documentRoot + "/" + WebserverConnectorService.UPLOAD_TYPE_CSS + "/" + name);
+                        break;
+                    case WebserverConnectorService.UPLOAD_TYPE_JS:
+                        this.copy(filename, documentRoot + "/" + WebserverConnectorService.UPLOAD_TYPE_JS + "/" + name);
+                        break;
+                    case WebserverConnectorService.UPLOAD_TYPE_IMG:
+                        this.copy(filename, documentRoot + "/" + WebserverConnectorService.UPLOAD_TYPE_IMG + "/" + name);
+                        break;
+                    default:
+                        this.copy(filename, documentRoot + "/" + WebserverConnectorService.UPLOAD_TYPE_OTHER + "/" + name);
+                        break;
+                }
             }
-        }        
+        }
     }
 
     @Override
@@ -444,42 +445,46 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
     public String[] listResources(String domain, String type) {
         Stack<String> result = new Stack();
         String documentRoot = this.getDocumentRoot(domain);
-        
+
         if (documentRoot != null) {
             if (type == null || type.equals(WebserverConnectorService.UPLOAD_TYPE_CSS)) {
                 String command = "ls " + documentRoot + "/" + WebserverConnectorService.UPLOAD_TYPE_CSS + "/";
                 String stdout = this.execute(command);
                 for (String resource : stdout.split("\n")) {
-                    if (!resource.equals(""))
+                    if (!resource.equals("")) {
                         result.push(resource);
+                    }
                 }
             }
             if (type == null || type.equals(WebserverConnectorService.UPLOAD_TYPE_JS)) {
                 String command = "ls " + documentRoot + "/" + WebserverConnectorService.UPLOAD_TYPE_JS + "/";
                 String stdout = this.execute(command);
                 for (String resource : stdout.split("\n")) {
-                    if (!resource.equals(""))
+                    if (!resource.equals("")) {
                         result.push(resource);
+                    }
                 }
             }
             if (type == null || type.equals(WebserverConnectorService.UPLOAD_TYPE_IMG)) {
                 String command = "ls " + documentRoot + "/" + WebserverConnectorService.UPLOAD_TYPE_IMG + "/";
                 String stdout = this.execute(command);
                 for (String resource : stdout.split("\n")) {
-                    if (!resource.equals(""))
+                    if (!resource.equals("")) {
                         result.push(resource);
+                    }
                 }
             }
             if (type == null || type.equals(WebserverConnectorService.UPLOAD_TYPE_OTHER)) {
                 String command = "ls " + documentRoot + "/" + WebserverConnectorService.UPLOAD_TYPE_OTHER + "/";
                 String stdout = this.execute(command);
                 for (String resource : stdout.split("\n")) {
-                    if (!resource.equals(""))
+                    if (!resource.equals("")) {
                         result.push(resource);
+                    }
                 }
             }
-        }                
-        
+        }
+
         String[] tmp = new String[result.size()];
         return result.toArray(tmp);
     }

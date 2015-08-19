@@ -16,16 +16,7 @@ public interface WebserverConnectorService {
     public static final String UPLOAD_TYPE_CSS = "css";
     public static final String UPLOAD_TYPE_JS = "js";
     public static final String UPLOAD_TYPE_IMG = "img";
-    public static final String UPLOAD_TYPE_OTHER = "data";
-    
-    /**
-     * Check For Valid Setup
-     *
-     * Check if the current connector object is setup correct to execute the standard commands.
-     *
-     * @return
-     */
-    public boolean isValid();
+    public static final String UPLOAD_TYPE_OTHER = "data";        
 
     /**
      * Get Virtual Hosts Available
@@ -109,16 +100,7 @@ public interface WebserverConnectorService {
      *
      * @param filename
      */
-    public void setVirtualHostTemplate(String filename);
-
-    /**
-     * Set Authentication Credentials
-     *
-     * Set additional credentials for authentication a concrete implementation my need.
-     *
-     * @param credentials
-     */
-    public void setAuthenticationCredentials(HashMap<String, String> credentials);
+    public void setVirtualHostTemplate(String filename);    
     
     /**
      * Upload Resource To Webserver

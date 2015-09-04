@@ -1,7 +1,6 @@
 package io.kofrezo.webserverconnector.interfaces;
 
 import java.io.InputStream;
-import java.util.HashMap;
 
 /**
  * Webserver Connector Service Interface
@@ -13,148 +12,100 @@ import java.util.HashMap;
  */
 public interface WebserverConnectorService {
 
-    public static final String UPLOAD_TYPE_CSS = "css";
-    public static final String UPLOAD_TYPE_JS = "js";
-    public static final String UPLOAD_TYPE_IMG = "img";
-    public static final String UPLOAD_TYPE_OTHER = "data";        
+    public static final String RESOURCE_TYPE_STYLESHEET = "css";
+    public static final String RESOURCE_TYPE_JAVASCRIPT = "js";
+    public static final String RESOURCE_TYPE_IMAGE = "img";
+    public static final String RESOURCE_TYPE_OTHER = "data";
+    
+    public static final String DOMAIN_FILTER_ALL = "all";
+    public static final String DOMAIN_FILTER_ENABLED = "enabled";
+    public static final String DOMAIN_FILTER_DISABLED = "disabled";
 
     /**
-     * Get Virtual Hosts Available
+     * Get Domains
      *
-     * Return a list of all available virtual hosts
+     * Return array of available domains
      *
-     * @return virtual hosts available
+     * @param filter
+     * @return domains
      */
-    public String[] listVirtualHosts();
+    public String[] getDomains(String filter);    
 
     /**
-     * Get Virtual Hosts Enabled
-     *
-     * Return a list of all enabled virtual hosts
-     *
-     * @return virtual hosts enabled
-     */
-    public String[] listVirtualHostsEnabled();
-
-    /**
-     * Get Virtual Hosts Disabled
-     *
-     * Return a list of all disabled virtual hosts
-     *
-     * @return virtual hosts disabled
-     */
-    public String[] listVirtualHostsDisabled();
-
-    /**
-     * Create New Virtual Host
-     *
-     * Creates a new virtual host based on the template file set.
-     *
-     * All occurrences of the String %DOMAIN% in template file are replaced with the domain name given. Should do
-     * nothing if the virtual host already exists. Should not enable the new virtual host.
+     * Create New Domain
+     * 
+     * Create new domain - do nothing if already available          
      *
      * @param domain
      * @param aliases
      */
-    public void createVirtualHost(String domain, String[] aliases);
+    public void createDomain(String domain, String[] aliases);
 
     /**
-     * Delete Virtual Host
-     *
-     * Deletes an existing virtual host.
-     *
-     * Deletes the existing virtual host for the given domain. Should do nothing if the virtual host does not exist.
+     * Delete Domain
+     * 
+     * Delete domain with given name - do nothing if no available
      *
      * @param domain
      */
-    public void deleteVirtualHost(String domain);
+    public void deleteDomain(String domain);
 
     /**
-     * Enable Virtual Host
-     *
-     * Enables an existing virtual host.
-     *
-     * Enables an existing virtual host matching the given domain name. Should do nothing if the virtual host does not
-     * exist.
+     * Enable Domain
+     * 
+     * Enable domain with given name - do nothing if already enabled
      *
      * @param domain
      */
-    public void enableVirtualHost(String domain);
+    public void enableDomain(String domain);
 
     /**
-     * Disable Virtual Host
-     *
-     * Disables an existing virtual host.
-     *
-     * Disables an existing virtual host matching the given domain name. Should do nothing if the virtual host does not
-     * exist.
+     * Disable Domain
+     * 
+     * Disable domain with given name - do nothing if already disabled
      *
      * @param domain
      */
-    public void disableVirtualHost(String domain);
-
-    /**
-     * Set Template Filename
-     *
-     * Set the filename to the template used for new virtual hosts.
-     *
-     * @param filename
+    public void disableDomain(String domain);    
+    
+     /**
+     * Get Resources
+     * 
+     * Return array of available resource for domain and type if type is null
+     * return all types if domain is null return all domains.
+     * 
+     * @param domain
+     * @param type 
+     * @return resource list
      */
-    public void setVirtualHostTemplate(String filename);    
+    public String[] getResources(String domain, String type);
     
     /**
-     * Upload Resource To Webserver
-     * 
-     * Upload the given resource to webserver with the same filename.
+     * Upload Resource
      * 
      * @param domain
      * @param type
-     * @param filename 
-     * @param name
+     * @param src 
+     * @param dstName
      */
-    public void createResource(String domain, String type, String filename, String name);
+    public void createResource(String domain, String type, String src, String dstName);
     
     /**
-     * Upload Resource To Webserver
-     * 
-     * Upload the given resource to webserver from the given inputstream and
-     * use the given name.
-     * 
-     * Overwrite resource if it already exists and has changed.
-     * 
+     * Upload Resource
+     *      
      * @param domain
      * @param type
-     * @param input
-     * @param name
+     * @param src
+     * @param dstName
      */
-    public void createResource(String domain, String type, InputStream input, String name);
+    public void createResource(String domain, String type, InputStream src, String dstName);
     
     /**
-     * Delete Resource From Webserver
-     * 
-     * Delete the given resource identified by name and type at document root
-     * from the webserver.
-     * 
-     * Do nothing if the resource does not exist.
+     * Delete Resource          
      * 
      * @param domain
      * @param type
      * @param name 
      */
-    public void deleteResource(String domain, String type, String name);
-    
-    /**
-     * Get Available Resources For Type
-     * 
-     * List all available resources for the given doman and type.
-     * 
-     * Type may be null or a resource constant. If type is null all resources
-     * are returned.
-     * 
-     * @param domain
-     * @param type
-     * 
-     * @return resource list
-     */
-    public String[] listResources(String domain, String type);
+    public void deleteResource(String domain, String type, String name);       
 }

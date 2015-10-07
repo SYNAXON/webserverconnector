@@ -153,7 +153,8 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
                 }
             }
             else {
-                bis = new BufferedInputStream(this.getClass().getClassLoader().getResourceAsStream("connector-apachessh-template.conf"));
+                String templateName = System.getProperty("connector.apachessh.template");
+                bis = new BufferedInputStream(this.getClass().getClassLoader().getResourceAsStream(templateName));
             }
         
             if (bis != null) {

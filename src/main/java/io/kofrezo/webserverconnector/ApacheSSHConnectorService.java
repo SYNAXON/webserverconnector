@@ -80,7 +80,10 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
                         this.getProperties().getProperty("connector.apachessh.host"),
                         Integer.parseInt(this.getProperties().getProperty("connector.apachessh.port"))        
                 );
-                this.session.setConfig("StrictHostKeyChecking", "no");
+                this.session.setConfig(
+                        "StrictHostKeyChecking",
+                        this.getProperties().getProperty("connector.apachessh.stricthostkeychecking", "yes")
+                );
                 this.session.connect();
                 LOGGER.debug("opening ssh session to host");
             }
@@ -246,28 +249,19 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
         Stack<String> commands = new Stack();
         
         String filename = this.getProperties().getProperty("connector.apachessh.sitesavailable", "/etc/apache2/sites-available/") + domain + ".conf";
-        String command1 = "echo '" + template + "' >> /tmp/ws-apachessh.tmp";
+        String command1 = "echo '" + template + "' >> " + filename;
         commands.push(command1);
-        
-        String command2 = "sudo mv /tmp/ws-apachessh.tmp " + filename;
-        commands.push(command2);
-        
-        String command3 = "sudo chown root:root " + filename;
-        commands.push(command3);
         
         String docroot = this.getDocumentRoot(template);
         docroot += (docroot.endsWith("/") ? "" : "/");       
         if (!docroot.equals("")) {
-            String command4 = "sudo mkdir -p " + docroot + "{";                        
+            String command4 = "mkdir -p " + docroot + "{";                        
             command4 += WebserverConnectorService.RESOURCE_TYPE_IMAGE + ",";
             command4 += WebserverConnectorService.RESOURCE_TYPE_JAVASCRIPT + ",";
             command4 += WebserverConnectorService.RESOURCE_TYPE_OTHER + ",";
             command4 += WebserverConnectorService.RESOURCE_TYPE_STYLESHEET;
             command4 += "}";
-            commands.push(command4);
-            
-            String command5 = "sudo chown -R $(whoami):www-data " + docroot;
-            commands.push(command5);
+            commands.push(command4);                      
         }
          
         while(!commands.empty()) {            
@@ -279,19 +273,19 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
     @Override
     public void deleteDomain(String domain) {
         String filename = this.getProperties().getProperty("connector.apachessh.sitesavailable", "/etc/apache2/sites-available/") + domain + ".conf";
-        String command = "sudo a2dissite " + domain + ".conf; sudo service apache2 reload; sudo rm " + filename;
+        String command = "sudo a2dissite " + domain + ".conf; /etc/init.d/apache2 reload; rm " + filename;
         this.execute(command);
     }
 
     @Override
     public void enableDomain(String domain) {        
-        String command = "sudo a2ensite " + domain + ".conf && sudo service apache2 reload";
+        String command = "sudo a2ensite " + domain + ".conf && /etc/init.d/apache2 reload";
         this.execute(command);
     }
 
     @Override
     public void disableDomain(String domain) {
-        String command = "sudo a2dissite " + domain + ".conf && sudo service apache2 reload";
+        String command = "sudo a2dissite " + domain + ".conf && /etc/init.d/apache2 reload";
         this.execute(command);
     }
 

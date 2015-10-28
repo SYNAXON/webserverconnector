@@ -8,8 +8,6 @@ import com.jcraft.jsch.Session;
 import com.jcraft.jsch.SftpException;
 import io.kofrezo.webserverconnector.interfaces.WebserverConnectorService;
 import java.io.BufferedInputStream;
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -150,16 +148,9 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
             BufferedInputStream bis = null;
             String template = this.getProperties().getProperty("connector.apachessh.template");
             if (template != null) {
-                File file = new File(template);
-                if (file.canRead()) {
-                    bis = new BufferedInputStream(new FileInputStream(file));
-                }
+                bis = new BufferedInputStream(this.getClass().getClassLoader().getResourceAsStream(template));
             }
-            else {
-                String templateName = System.getProperty("connector.apachessh.template");
-                bis = new BufferedInputStream(this.getClass().getClassLoader().getResourceAsStream(templateName));
-            }
-        
+
             if (bis != null) {
                 byte[] buffer = new byte[1024];
                 while(true) {
@@ -314,17 +305,35 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
             Stack<String> resources = new Stack();
             ChannelSftp channel = (ChannelSftp)this.getSession().openChannel("sftp");
             channel.connect();
-            
-            for (String curDomain : domains) {                
-                for (String curType : types) {
-                    String path = "/var/www/" + curDomain + "/" + curType;
-                    LOGGER.debug("listing resources for " + path);
-                    
-                    Vector files = channel.ls(path);                    
-                    for (Object file : files) {
-                        String filename = this.getFilenameForLs(file.toString());
-                        if (!filename.equals(".") && !filename.equals("..")) {
-                            resources.push(path + "/" + filename);
+      
+            String rootPath = "/var/www";
+            Vector rootPathResult = channel.ls(rootPath);
+            Stack<String> domainPaths = new Stack();
+            for (Object file : rootPathResult) {
+                String filename = this.getFilenameForLs(file.toString());
+                domainPaths.push(filename);
+            }
+
+            for (String curDomain : domains) {
+                boolean exists = false;
+                for (String domainPath : domainPaths) {
+                    if (domainPath.equals(curDomain)) {
+                        exists = true;
+                        break;
+                    }
+                }
+                
+                if (exists == true) {
+                    for (String curType : types) {
+                        String path = "/var/www/" + curDomain + "/" + curType;
+                        LOGGER.debug("listing resources for " + path);
+
+                        Vector files = channel.ls(path);                    
+                        for (Object file : files) {
+                            String filename = this.getFilenameForLs(file.toString());
+                            if (!filename.equals(".") && !filename.equals("..")) {
+                                resources.push(path + "/" + filename);
+                            }
                         }
                     }
                 }

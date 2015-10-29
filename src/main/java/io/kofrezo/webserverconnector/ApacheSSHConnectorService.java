@@ -37,7 +37,7 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
 
     private static final Logger LOGGER = LogManager.getLogger(ApacheSSHConnectorService.class);
 
-    private final String ENVIRMONMENT = System.getProperty("cmf.environment/", "development");
+    private final String ENVIRMONMENT = System.getProperty("cmf.environment", "development");
     private Properties properties;
     private Session session;    
 

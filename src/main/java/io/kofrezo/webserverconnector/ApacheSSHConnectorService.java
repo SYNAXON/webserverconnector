@@ -37,6 +37,7 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
 
     private static final Logger LOGGER = LogManager.getLogger(ApacheSSHConnectorService.class);
 
+    private final String ENVIRMONMENT = System.getProperty("cmf.environment/", "development");
     private Properties properties;
     private Session session;    
 
@@ -53,7 +54,8 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
         if (this.properties == null) {
             try {
                 this.properties = new Properties();
-                InputStream is = this.getClass().getClassLoader().getResourceAsStream("webserverconnector.properties");
+                String propertiesPath = ENVIRMONMENT + "/webserverconnector.properties";
+                InputStream is = this.getClass().getClassLoader().getResourceAsStream(propertiesPath);
                 this.properties.load(is);
             } 
             catch (IOException ex) {
@@ -148,7 +150,8 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
             BufferedInputStream bis = null;
             String template = this.getProperties().getProperty("connector.apachessh.template");
             if (template != null) {
-                bis = new BufferedInputStream(this.getClass().getClassLoader().getResourceAsStream(template));
+                String templatePath = ENVIRMONMENT + "/" + template;
+                bis = new BufferedInputStream(this.getClass().getClassLoader().getResourceAsStream(templatePath));
             }
 
             if (bis != null) {

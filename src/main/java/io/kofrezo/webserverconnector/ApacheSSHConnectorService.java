@@ -267,19 +267,19 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
     @Override
     public void deleteDomain(String domain) {
         String filename = this.getProperties().getProperty("connector.apachessh.sitesavailable", "/etc/apache2/sites-available/") + domain + ".conf";
-        String command = "sudo a2dissite " + domain + ".conf; /etc/init.d/apache2 reload; rm " + filename;
+        String command = "sudo a2dissite " + domain + ".conf; sudo /etc/init.d/apache2 reload; rm " + filename;
         this.execute(command);
     }
 
     @Override
     public void enableDomain(String domain) {        
-        String command = "sudo a2ensite " + domain + ".conf && /etc/init.d/apache2 reload";
+        String command = "sudo a2ensite " + domain + ".conf && sudo /etc/init.d/apache2 reload";
         this.execute(command);
     }
 
     @Override
     public void disableDomain(String domain) {
-        String command = "sudo a2dissite " + domain + ".conf && /etc/init.d/apache2 reload";
+        String command = "sudo a2dissite " + domain + ".conf && sudo /etc/init.d/apache2 reload";
         this.execute(command);
     }
 

@@ -20,6 +20,8 @@ public interface WebserverConnectorService {
     public static final String DOMAIN_FILTER_ALL = "all";
     public static final String DOMAIN_FILTER_ENABLED = "enabled";
     public static final String DOMAIN_FILTER_DISABLED = "disabled";
+    
+    public static final String RESOURCE_IMG_FOLDER = "/var/www/cmf_images";
 
     /**
      * Get Domains
@@ -89,6 +91,14 @@ public interface WebserverConnectorService {
      * @param dstName
      */
     public void createResource(String domain, String type, String src, String dstName);
+    
+    /**
+     * This methods creates an image file on the webserver. All images should be stored in a global directory.
+     * 
+     * @param src
+     * @param dstName 
+     */
+    public void createImage(InputStream src, String dstName);    
     
     /**
      * Upload Resource

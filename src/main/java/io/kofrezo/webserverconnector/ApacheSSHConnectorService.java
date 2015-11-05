@@ -250,12 +250,18 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
         docroot += (docroot.endsWith("/") ? "" : "/");       
         if (!docroot.equals("")) {
             String command4 = "mkdir -p " + docroot + "{";                        
-            command4 += WebserverConnectorService.RESOURCE_TYPE_IMAGE + ",";
             command4 += WebserverConnectorService.RESOURCE_TYPE_JAVASCRIPT + ",";
             command4 += WebserverConnectorService.RESOURCE_TYPE_OTHER + ",";
             command4 += WebserverConnectorService.RESOURCE_TYPE_STYLESHEET;
             command4 += "}";
-            commands.push(command4);                      
+            commands.push(command4);
+            // all images will be stored in a global directory and not in a domain specific one 
+            // so that it is necessary to create the global directory and a symlink
+            String command5 = "mkdir -p " + RESOURCE_IMG_FOLDER;
+            commands.push(command5);
+            String command6 = "ln -s " + RESOURCE_IMG_FOLDER + " " 
+                                + docroot + WebserverConnectorService.RESOURCE_TYPE_IMAGE;
+            commands.push(command6);
         }
          
         while(!commands.empty()) {            
@@ -267,19 +273,19 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
     @Override
     public void deleteDomain(String domain) {
         String filename = this.getProperties().getProperty("connector.apachessh.sitesavailable", "/etc/apache2/sites-available/") + domain + ".conf";
-        String command = "sudo a2dissite " + domain + ".conf; /etc/init.d/apache2 reload; rm " + filename;
+        String command = "sudo a2dissite " + domain + ".conf; sudo /etc/init.d/apache2 reload; rm " + filename;
         this.execute(command);
     }
 
     @Override
     public void enableDomain(String domain) {        
-        String command = "sudo a2ensite " + domain + ".conf && /etc/init.d/apache2 reload";
+        String command = "sudo a2ensite " + domain + ".conf && sudo /etc/init.d/apache2 reload";
         this.execute(command);
     }
 
     @Override
     public void disableDomain(String domain) {
-        String command = "sudo a2dissite " + domain + ".conf && /etc/init.d/apache2 reload";
+        String command = "sudo a2dissite " + domain + ".conf && sudo /etc/init.d/apache2 reload";
         this.execute(command);
     }
 
@@ -361,6 +367,30 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
             channel.connect();
             
             String path = "/var/www/" + domain + "/" + type + "/" + dstName;
+            channel.put(src, path);
+            channel.disconnect();
+        } 
+        catch (JSchException | SftpException ex) {
+            LOGGER.debug("can not create resource", ex);
+        }
+    }
+    
+    /**
+     * This methods creates an image file on the webserver. All images should be stored in a global directory.
+     * 
+     * @param src
+     * @param dstName 
+     */
+    @Override
+    public void createImage(InputStream src, String dstName) {
+        try {
+            String folder = RESOURCE_IMG_FOLDER + "/" + dstName.substring(0, dstName.lastIndexOf("/"));
+            String command = "mkdir -p " + folder;
+            this.execute(command);
+            ChannelSftp channel = (ChannelSftp)this.getSession().openChannel("sftp");
+            channel.connect();
+            
+            String path = RESOURCE_IMG_FOLDER + "/" + dstName;
             channel.put(src, path);
             channel.disconnect();
         } 

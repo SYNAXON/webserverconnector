@@ -236,37 +236,40 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
 
     @Override
     public void createDomain(String domain, String[] aliases) {
-        String template = this.getTemplate().replace("%DOMAIN%", domain);
-        
-        // @TODO setup aliases for domain ...                
-        
-        Stack<String> commands = new Stack();
-        
-        String filename = this.getProperties().getProperty("connector.apachessh.sitesavailable", "/etc/apache2/sites-available/") + domain + ".conf";
-        String command1 = "echo '" + template + "' >> " + filename;
-        commands.push(command1);
-        
-        String docroot = this.getDocumentRoot(template);
-        docroot += (docroot.endsWith("/") ? "" : "/");       
-        if (!docroot.equals("")) {
-            String command4 = "mkdir -p " + docroot + "{";                        
-            command4 += WebserverConnectorService.RESOURCE_TYPE_JAVASCRIPT + ",";
-            command4 += WebserverConnectorService.RESOURCE_TYPE_OTHER + ",";
-            command4 += WebserverConnectorService.RESOURCE_TYPE_STYLESHEET;
-            command4 += "}";
-            commands.push(command4);
-            // all images will be stored in a global directory and not in a domain specific one 
-            // so that it is necessary to create the global directory and a symlink
-            String command5 = "mkdir -p " + RESOURCE_IMG_FOLDER;
-            commands.push(command5);
-            String command6 = "ln -s " + RESOURCE_IMG_FOLDER + " " 
-                                + docroot + WebserverConnectorService.RESOURCE_TYPE_IMAGE;
-            commands.push(command6);
-        }
-         
-        while(!commands.empty()) {            
-            this.execute(commands.firstElement());
-            commands.remove(0);
+        if(domain != null) {
+            String template = this.getTemplate().replace("%DOMAIN%", domain);
+
+            // @TODO setup aliases for domain ...                
+
+            Stack<String> commands = new Stack();
+
+            String filename = this.getProperties().getProperty("connector.apachessh.sitesavailable", 
+                    "/etc/apache2/sites-available/") + domain + ".conf";
+            String command1 = "echo '" + template + "' >> " + filename;
+            commands.push(command1);
+
+            String docroot = this.getDocumentRoot(template);
+            docroot += (docroot.endsWith("/") ? "" : "/");       
+            if (!docroot.equals("")) {
+                String command4 = "mkdir -p " + docroot + "{";                        
+                command4 += WebserverConnectorService.RESOURCE_TYPE_JAVASCRIPT + ",";
+                command4 += WebserverConnectorService.RESOURCE_TYPE_OTHER + ",";
+                command4 += WebserverConnectorService.RESOURCE_TYPE_STYLESHEET;
+                command4 += "}";
+                commands.push(command4);
+                // all images will be stored in a global directory and not in a domain specific one 
+                // so that it is necessary to create the global directory and a symlink
+                String command5 = "mkdir -p " + RESOURCE_IMG_FOLDER;
+                commands.push(command5);
+                String command6 = "ln -s " + RESOURCE_IMG_FOLDER + " " 
+                                    + docroot + WebserverConnectorService.RESOURCE_TYPE_IMAGE;
+                commands.push(command6);
+            }
+
+            while(!commands.empty()) {            
+                this.execute(commands.firstElement());
+                commands.remove(0);
+            }
         }
     }
 

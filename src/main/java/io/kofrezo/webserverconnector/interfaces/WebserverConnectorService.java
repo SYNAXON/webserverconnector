@@ -117,5 +117,12 @@ public interface WebserverConnectorService {
      * @param type
      * @param name 
      */
-    public void deleteResource(String domain, String type, String name);       
+    public void deleteResource(String domain, String type, String name);
+    
+    /**
+     * Copies the resources from the the source domain to the destination domain.
+     * @param sourceDomain the domain the resources to be copied from
+     * @param destinationDomain the domain the resources to be copied to
+     */
+    public void copyResources(String sourceDomain, String destinationDomain);
 }

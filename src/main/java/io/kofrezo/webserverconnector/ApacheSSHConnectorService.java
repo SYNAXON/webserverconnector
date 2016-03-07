@@ -431,4 +431,19 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
             LOGGER.debug("can not delete resource", ex);
         }
     }        
+
+    /**
+     * Copies the resources from the the source domain to the destination domain
+     * @param sourceDomain the folder name representing the domain, stored under '/var/www/' the resources to be copied 
+     *        from
+     * @param destinationDomain the destination folder name representing the domain under '/var/www/' the resources to 
+     *        be copied to
+     */
+    @Override
+    public void copyResources(String sourceDomain, String destinationDomain) {
+        String sourcePath = "/var/www/" + sourceDomain + "/";
+        String destinationPath = "/var/www/" + destinationDomain + "/";
+        String command = "cp -R " + sourcePath + "* " + destinationPath;
+        this.execute(command);
+    }
 }

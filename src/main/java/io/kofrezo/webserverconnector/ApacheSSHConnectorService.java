@@ -64,6 +64,14 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
         }
         return this.properties;
     }
+    
+    /**
+     * This method provides the ability to override the whole connector properties.
+     * @param properties the properties to be set
+     */
+    public void setProperties(Properties properties) {
+        this.properties = properties;
+    }
 
     private Session getSession()
     {        

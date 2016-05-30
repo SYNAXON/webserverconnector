@@ -372,18 +372,15 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
     }
 
     @Override
-    public void createResource(String domain, String type, String src, String dstName) {
-        try {
-            ChannelSftp channel = (ChannelSftp)this.getSession().openChannel("sftp");
-            channel.connect();
-            
-            String path = "/var/www/" + domain + "/" + type + "/" + dstName;
-            channel.put(src, path);
-            channel.disconnect();
-        } 
-        catch (JSchException | SftpException ex) {
-            LOGGER.debug("can not create resource", ex);
-        }
+    public void createResource(String domain, String type, String src, String dstName) throws JSchException,
+            SftpException {
+        
+        ChannelSftp channel = (ChannelSftp)this.getSession().openChannel("sftp");
+        channel.connect();
+
+        String path = "/var/www/" + domain + "/" + type + "/" + dstName;
+        channel.put(src, path);
+        channel.disconnect();
     }
     
     /**
@@ -393,51 +390,42 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
      * @param dstName 
      */
     @Override
-    public void createImage(InputStream src, String dstName) {
-        try {
-            String folder = RESOURCE_IMG_FOLDER + "/" + dstName.substring(0, dstName.lastIndexOf("/"));
-            String command = "mkdir -p " + folder;
-            this.execute(command);
-            ChannelSftp channel = (ChannelSftp)this.getSession().openChannel("sftp");
-            channel.connect();
-            
-            String path = RESOURCE_IMG_FOLDER + "/" + dstName;
-            channel.put(src, path);
-            channel.disconnect();
-        } 
-        catch (JSchException | SftpException ex) {
-            LOGGER.debug("can not create resource", ex);
-        }
+    public void createImage(InputStream src, String dstName) throws JSchException, SftpException {
+        String folder = RESOURCE_IMG_FOLDER + "/" + dstName.substring(0, dstName.lastIndexOf("/"));
+        String command = "mkdir -p " + folder;
+        this.execute(command);
+        ChannelSftp channel = (ChannelSftp)this.getSession().openChannel("sftp");
+        channel.connect();
+
+        String path = RESOURCE_IMG_FOLDER + "/" + dstName;
+        channel.put(src, path);
+        channel.disconnect();
     }
 
     @Override
-    public void createResource(String domain, String type, InputStream src, String dstName) {
-        try {
-            ChannelSftp channel = (ChannelSftp)this.getSession().openChannel("sftp");
-            channel.connect();
-            
-            String path = "/var/www/" + domain + "/" + type + "/" + dstName;
-            channel.put(src, path);
-            channel.disconnect();
-        } 
-        catch (JSchException | SftpException ex) {
-            LOGGER.debug("can not create resource", ex);
-        }
+    public void createResource(String domain, String type, InputStream src, String dstName) throws JSchException,
+            SftpException {
+        
+        String folder = "/var/www/" + domain + "/" + type + "/";
+        String command = "mkdir -p " + folder;
+        this.execute(command);
+        ChannelSftp channel = (ChannelSftp)this.getSession().openChannel("sftp");
+        channel.connect();
+
+        String path = folder + "/" + dstName;
+        channel.put(src, path);
+        channel.disconnect();
+        
     }
 
     @Override
-    public void deleteResource(String domain, String type, String name) {
-        try {
-            ChannelSftp channel = (ChannelSftp)this.getSession().openChannel("sftp");
-            channel.connect();
-            
-            String path = "/var/www/" + domain + "/" + type + "/" + name;
-            channel.rm(path);
-            channel.disconnect();
-        } 
-        catch (JSchException | SftpException ex) {
-            LOGGER.debug("can not delete resource", ex);
-        }
+    public void deleteResource(String domain, String type, String name) throws JSchException, SftpException {
+        ChannelSftp channel = (ChannelSftp)this.getSession().openChannel("sftp");
+        channel.connect();
+
+        String path = "/var/www/" + domain + "/" + type + "/" + name;
+        channel.rm(path);
+        channel.disconnect();
     }        
 
     /**

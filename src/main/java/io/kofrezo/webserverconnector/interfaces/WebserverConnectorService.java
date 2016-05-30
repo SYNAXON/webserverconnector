@@ -1,5 +1,7 @@
 package io.kofrezo.webserverconnector.interfaces;
 
+import com.jcraft.jsch.JSchException;
+import com.jcraft.jsch.SftpException;
 import java.io.InputStream;
 
 /**
@@ -89,16 +91,21 @@ public interface WebserverConnectorService {
      * @param type
      * @param src 
      * @param dstName
+     * @throws com.jcraft.jsch.JSchException
+     * @throws com.jcraft.jsch.SftpException
      */
-    public void createResource(String domain, String type, String src, String dstName);
+    public void createResource(String domain, String type, String src, String dstName) throws JSchException,
+            SftpException;
     
     /**
      * This methods creates an image file on the webserver. All images should be stored in a global directory.
      * 
      * @param src
      * @param dstName 
+     * @throws com.jcraft.jsch.JSchException 
+     * @throws com.jcraft.jsch.SftpException 
      */
-    public void createImage(InputStream src, String dstName);    
+    public void createImage(InputStream src, String dstName) throws JSchException, SftpException;    
     
     /**
      * Upload Resource
@@ -107,8 +114,11 @@ public interface WebserverConnectorService {
      * @param type
      * @param src
      * @param dstName
+     * @throws com.jcraft.jsch.JSchException 
+     * @throws com.jcraft.jsch.SftpException
      */
-    public void createResource(String domain, String type, InputStream src, String dstName);
+    void createResource(String domain, String type, InputStream src, String dstName) throws JSchException,
+            SftpException;
     
     /**
      * Delete Resource          
@@ -116,8 +126,10 @@ public interface WebserverConnectorService {
      * @param domain
      * @param type
      * @param name 
+     * @throws com.jcraft.jsch.JSchException 
+     * @throws com.jcraft.jsch.SftpException 
      */
-    public void deleteResource(String domain, String type, String name);
+    public void deleteResource(String domain, String type, String name) throws JSchException, SftpException;
     
     /**
      * Copies the resources from the the source domain to the destination domain.

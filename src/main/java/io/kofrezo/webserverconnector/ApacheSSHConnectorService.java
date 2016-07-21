@@ -43,8 +43,8 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
 
     @PreDestroy
     public void deinit() {
-        if (this.getSession() != null && this.getSession().isConnected()) {
-            this.getSession().disconnect();
+        if (this.session != null && this.session.isConnected()) {
+            this.session.disconnect();
             LOGGER.debug("closing ssh connection to host");
         }
     }
@@ -73,34 +73,29 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
         this.properties = properties;
     }
 
-    private Session getSession()
+    private Session getSession() throws JSchException
     {        
         if (this.session == null || !this.session.isConnected()) {
-            try {
-                JSch jsch = new JSch();
-                jsch.addIdentity(
-                        this.getProperties().getProperty("connector.apachessh.privatekey"),
-                        this.getProperties().getProperty("connector.apachessh.publickey"),
-                        this.getProperties().getProperty("connector.apachessh.passphrase").getBytes()
-                );
-                this.session = jsch.getSession(
-                        this.getProperties().getProperty("connector.apachessh.user"),
-                        this.getProperties().getProperty("connector.apachessh.host"),
-                        Integer.parseInt(this.getProperties().getProperty("connector.apachessh.port"))        
-                );
-                this.session.setConfig(
-                        "StrictHostKeyChecking",
-                        this.getProperties().getProperty("connector.apachessh.stricthostkeychecking", "yes")
-                );
-                this.session.connect();
-                LOGGER.debug("opening ssh session to host");
-            }
-            catch (JSchException ex) {
-                LOGGER.error("establishing ssh connection to host failed", ex);
-            }        
+            JSch jsch = new JSch();
+            jsch.addIdentity(
+                    this.getProperties().getProperty("connector.apachessh.privatekey"),
+                    this.getProperties().getProperty("connector.apachessh.publickey"),
+                    this.getProperties().getProperty("connector.apachessh.passphrase").getBytes()
+            );
+            this.session = jsch.getSession(
+                    this.getProperties().getProperty("connector.apachessh.user"),
+                    this.getProperties().getProperty("connector.apachessh.host"),
+                    Integer.parseInt(this.getProperties().getProperty("connector.apachessh.port"))        
+            );
+            this.session.setConfig(
+                    "StrictHostKeyChecking",
+                    this.getProperties().getProperty("connector.apachessh.stricthostkeychecking", "yes")
+            );
+            this.session.connect();
+            LOGGER.debug("opening ssh session to host");
         }
         return this.session;
-    }    
+    }
     
     private String execute(String command)
     {

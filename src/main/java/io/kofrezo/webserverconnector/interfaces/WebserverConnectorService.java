@@ -6,84 +6,69 @@ import java.io.InputStream;
 import java.util.List;
 
 /**
- * Webserver Connector Service Interface
- *
  * Interface to offer setup a standard way to setup several concrete webservers such as Apache and NGINX.
  *
  * @author Daniel Kröger <daniel.kroeger@kofrezo.io>
- * @created Aug 8, 2015
+ * @author Jan Nurmse
  */
 public interface WebserverConnectorService {
 
-    public static final String RESOURCE_TYPE_STYLESHEET = "css";
-    public static final String RESOURCE_TYPE_JAVASCRIPT = "js";
-    public static final String RESOURCE_TYPE_IMAGE = "img";
-    public static final String RESOURCE_TYPE_OTHER = "data";
+    String RESOURCE_TYPE_STYLESHEET = "css";
+    String RESOURCE_TYPE_JAVASCRIPT = "js";
+    String RESOURCE_TYPE_IMAGE = "img";
+    String RESOURCE_TYPE_OTHER = "data";
 
-    public static final String DOMAIN_FILTER_ALL = "all";
-    public static final String DOMAIN_FILTER_ENABLED = "enabled";
-    public static final String DOMAIN_FILTER_DISABLED = "disabled";
+    String DOMAIN_FILTER_ALL = "all";
+    String DOMAIN_FILTER_ENABLED = "enabled";
+    String DOMAIN_FILTER_DISABLED = "disabled";
 
-    public static final String RESOURCE_IMG_FOLDER = "/var/www/cmf_images";
-
-    /**
-     * Get Domains
-     *
-     * Return array of available domains
-     *
-     * @param filter
-     * @return domains
-     */
-    public String[] getDomains(String filter);
+    String RESOURCE_IMG_FOLDER = "/var/www/cmf_images";
 
     /**
-     * Create New Domain
+     * Returns an array of available domains.
      *
-     * Create new domain - do nothing if already available
-     *
-     * @param domain
-     * @param aliases
+     * @param filter filter domain mode
+     * @return domains array of available domains
      */
-    public void createDomain(String domain, String[] aliases);
+    String[] getDomains(final String filter);
 
     /**
-     * Delete Domain
+     * Creates a new domain - do nothing if already available.
      *
-     * Delete domain with given name - do nothing if no available
-     *
-     * @param domain
+     * @param domain the name of the new domain
      */
-    public void deleteDomain(String domain);
+    void createDomain(final String domain);
 
     /**
-     * Enable Domain
+     * Deletes a domain with given name - do nothing if no available.
      *
-     * Enable domain with given name - do nothing if already enabled
-     *
-     * @param domain
+     * @param domain the name of the domain that should be deleted
      */
-    public void enableDomain(String domain);
+    void deleteDomain(final String domain);
 
     /**
-     * Disable Domain
+     * Enables a domain with given name - do nothing if already enabled.
      *
-     * Disable domain with given name - do nothing if already disabled
-     *
-     * @param domain
+     * @param domain the name of the domain that should be enabled
      */
-    public void disableDomain(String domain);
+    void enableDomain(final String domain);
+
+    /**
+     * Disables a domain with given name - do nothing if already disabled.
+     *
+     * @param domain the name of the domain that should be disabled
+     */
+    void disableDomain(final String domain);
 
      /**
-     * Get Resources
+     * Returns an array of available resource for the given domain and type. If type is null the method
+     * returns all types. If domain is null the method returns all domains.
      *
-     * Return array of available resource for domain and type if type is null
-     * return all types if domain is null return all domains.
-     *
-     * @param domain
-     * @param type
-     * @return resource list
+     * @param domain the domain for which the resources should be detected
+     * @param type resources can be filterery by type
+     * @return an aary of available resources for the given domain
      */
-    public String[] getResources(String domain, String type);
+    String[] getResources(final String domain, final String type);
 
      /**
      * Returns a list of available resources for the given domain.
@@ -94,17 +79,17 @@ public interface WebserverConnectorService {
     List<String> getResources(final String domain);
 
     /**
-     * Upload Resource
+     * Uploads a resource.
      *
-     * @param domain
-     * @param type
-     * @param src
-     * @param dstName
-     * @throws com.jcraft.jsch.JSchException
-     * @throws com.jcraft.jsch.SftpException
+     * @param domain the domain for which the resource should be uploaded
+     * @param type the type of the new resource
+     * @param src the src of the resource
+     * @param dstName the name of the resource
+     * @throws JSchException exception will be thrown if anything goes wrong with the SSH protocol
+     * @throws SftpException exception will be thrown if anything goes wrong while using the SFTP protocol
      */
-    public void createResource(String domain, String type, String src, String dstName) throws JSchException,
-            SftpException;
+    void createResource(final String domain, final String type, final String src, final String dstName)
+            throws JSchException, SftpException;
 
     /**
      * Uploads a webserver resource to given uploadPath (optional) beginning from the root directory of the
@@ -123,36 +108,37 @@ public interface WebserverConnectorService {
     /**
      * This methods creates an image file on the webserver. All images should be stored in a global directory.
      *
-     * @param src
-     * @param dstName
-     * @throws com.jcraft.jsch.JSchException
-     * @throws com.jcraft.jsch.SftpException
+     * @param src the src of the image file as an InputStream object
+     * @param dstName the name of timage file
+     * @throws JSchException exception will be thrown if anything goes wrong with the SSH protocol
+     * @throws SftpException exception will be thrown if anything goes wrong while using the SFTP protocol
      */
-    public void createImage(InputStream src, String dstName) throws JSchException, SftpException;
+    void createImage(final InputStream src, final String dstName) throws JSchException, SftpException;
 
     /**
-     * Upload Resource
+     * Uploads a resource.
      *
-     * @param domain
-     * @param type
-     * @param src
-     * @param dstName
-     * @throws com.jcraft.jsch.JSchException
-     * @throws com.jcraft.jsch.SftpException
+     * @param domain the domain for which the resource should be uploaded
+     * @param type the type of the new resource
+     * @param src the src of the resource as an InputStream object
+     * @param dstName the name of the resource
+     * @throws JSchException exception will be thrown if anything goes wrong with the SSH protocol
+     * @throws SftpException exception will be thrown if anything goes wrong while using the SFTP protocol
      */
-    void createResource(String domain, String type, InputStream src, String dstName) throws JSchException,
-            SftpException;
+    void createResource(final String domain, final String type, final InputStream src, final String dstName)
+            throws JSchException, SftpException;
 
     /**
-     * Delete Resource
+     * Deletes a resource.
      *
-     * @param domain
-     * @param type
-     * @param name
-     * @throws com.jcraft.jsch.JSchException
-     * @throws com.jcraft.jsch.SftpException
+     * @param domain the domain for which the resource should be deleted
+     * @param type the type of the resource
+     * @param name the name of the resource
+     * @throws JSchException exception will be thrown if anything goes wrong with the SSH protocol
+     * @throws SftpException exception will be thrown if anything goes wrong while using the SFTP protocol
      */
-    public void deleteResource(String domain, String type, String name) throws JSchException, SftpException;
+    void deleteResource(final String domain, final String type, final String name)
+            throws JSchException, SftpException;
 
     /**
      * Deletes a webserver resource from the given domain.
@@ -170,7 +156,7 @@ public interface WebserverConnectorService {
      * @param sourceDomain the domain the resources to be copied from
      * @param destinationDomain the domain the resources to be copied to
      */
-    public void copyResources(final String sourceDomain, final String destinationDomain);
+    void copyResources(final String sourceDomain, final String destinationDomain);
 
     /**
      * Copies a single resource from the the source domain to the destination domain.
@@ -184,10 +170,14 @@ public interface WebserverConnectorService {
             final String resourceName);
 
     /**
+     * Returns an InputStream for a webserver resource.
      *
-     * @param domain
-     * @param name
-     * @return
+     * @param domain the domain for which the webserver resource should be uploaded
+     * @param name the name of the webserver resource
+     * @return an InputStream for a webserver resource
+     * @throws JSchException exception will be thrown if anything goes wrong with the SSH protocol
+     * @throws SftpException exception will be thrown if anything goes wrong while using the SFTP protocol
      */
-    InputStream readWebserverResource(final String domain, final String name) throws JSchException, SftpException;
+    InputStream readWebserverResource(final String domain, final String name)
+            throws JSchException, SftpException;
 }

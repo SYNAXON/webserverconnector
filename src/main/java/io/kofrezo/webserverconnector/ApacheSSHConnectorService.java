@@ -8,11 +8,13 @@ import com.jcraft.jsch.Session;
 import com.jcraft.jsch.SftpException;
 import io.kofrezo.webserverconnector.interfaces.WebserverConnectorService;
 import java.io.BufferedInputStream;
+import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.Properties;
 import java.util.Stack;
 import java.util.Vector;
@@ -39,7 +41,7 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
 
     private final String ENVIRMONMENT = System.getProperty("cmf.environment", "development");
     private Properties properties;
-    private Session session;    
+    private Session session;
 
     @PreDestroy
     public void deinit() {
@@ -48,7 +50,7 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
             LOGGER.debug("closing ssh connection to host");
         }
     }
-    
+
     private Properties getProperties()
     {
         if (this.properties == null) {
@@ -57,14 +59,14 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
                 String propertiesPath = ENVIRMONMENT + "/webserverconnector.properties";
                 InputStream is = this.getClass().getClassLoader().getResourceAsStream(propertiesPath);
                 this.properties.load(is);
-            } 
+            }
             catch (IOException ex) {
                 LOGGER.error("/(WEB-INF|META-INF)/classes/webserverconnector.properties does not exist or is not properly configured");
             }
         }
         return this.properties;
     }
-    
+
     /**
      * This method provides the ability to override the whole connector properties.
      * @param properties the properties to be set
@@ -74,7 +76,7 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
     }
 
     private Session getSession() throws JSchException
-    {        
+    {
         if (this.session == null || !this.session.isConnected()) {
             JSch jsch = new JSch();
             jsch.addIdentity(
@@ -85,7 +87,7 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
             this.session = jsch.getSession(
                     this.getProperties().getProperty("connector.apachessh.user"),
                     this.getProperties().getProperty("connector.apachessh.host"),
-                    Integer.parseInt(this.getProperties().getProperty("connector.apachessh.port"))        
+                    Integer.parseInt(this.getProperties().getProperty("connector.apachessh.port"))
             );
             this.session.setConfig(
                     "StrictHostKeyChecking",
@@ -96,18 +98,18 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
         }
         return this.session;
     }
-    
+
     private String execute(String command)
     {
-        long start = System.currentTimeMillis();       
-                 
+        long start = System.currentTimeMillis();
+
         try {
-            ChannelExec channel = (ChannelExec)this.getSession().openChannel("exec");            
+            ChannelExec channel = (ChannelExec)this.getSession().openChannel("exec");
             channel.setCommand(command);
             channel.setErrStream(System.err);
             InputStream is = channel.getInputStream();
             channel.connect();
-            
+
             byte[] data = new byte[1024];
             StringBuilder stdout = new StringBuilder();
             while (true) {
@@ -124,31 +126,31 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
                             continue;
                         }
                         break;
-                    } 
+                    }
                     catch (IOException ex) {
                         LOGGER.error("executing command via ssh failed", ex);
                     }
                 }
                 Thread.sleep(500); // I absolutely don't know if this is a good value
-            }            
-            
+            }
+
             is.close();
-            channel.disconnect();            
-                        
+            channel.disconnect();
+
             LOGGER.debug("took " + (System.currentTimeMillis() - start) + " ms to execute command via ssh: " + command);
-            
+
             return stdout.toString();
-        } 
+        }
         catch (IOException | InterruptedException | JSchException ex) {
             LOGGER.error("executing command via ssh failed", ex);
-        } 
-        
+        }
+
         return "";
     }
-    
+
     private String getTemplate() {
         StringBuilder result = new StringBuilder();
-        
+
         try {
             BufferedInputStream bis = null;
             String template = this.getProperties().getProperty("connector.apachessh.template");
@@ -172,20 +174,20 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
         }
         catch(FileNotFoundException ex) {
             LOGGER.error("loading template for new domain failed", ex);
-        } 
+        }
         catch (IOException ex) {
             LOGGER.error("loading template for new domain failed", ex);
         }
-        
+
         return result.toString();
     }
-    
+
     private String getDocumentRoot(String template) {
         String docroot = null;
-        
+
         try {
-            int docrootBegin = template.indexOf("DocumentRoot") + 12;            
-            int docrootEnd = template.indexOf("\n", docrootBegin);            
+            int docrootBegin = template.indexOf("DocumentRoot") + 12;
+            int docrootEnd = template.indexOf("\n", docrootBegin);
 
             docroot = template.substring(docrootBegin, docrootEnd).trim();
             LOGGER.debug("document root is: " + docroot);
@@ -193,33 +195,33 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
         catch(StringIndexOutOfBoundsException ex) {
             LOGGER.warn("failed to get document root from template");
         }
-        
+
         return docroot;
     }
-    
+
     private String getFilenameForLs(String ls) {
         String[] fields = ls.split(" ");
         return fields[fields.length - 1].trim();
     }
-    
+
     @Override
     public String[] getDomains(String filter) {
-        String command;        
+        String command;
         StringBuilder stdout = new StringBuilder();
-        
+
         switch(filter) {
             case WebserverConnectorService.DOMAIN_FILTER_ENABLED:
                 command = "grep -P '^\\s+ServerName' " + this.getProperties().getProperty("connector.apachessh.sitesenabled", "/etc/apache2/sites-enabled/") + "*";
                 stdout.append(this.execute(command));
                 break;
             case WebserverConnectorService.DOMAIN_FILTER_DISABLED:
-                throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.                
+                throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
             default:
                 command = "grep -P '^\\s+ServerName' " + this.getProperties().getProperty("connector.apachessh.sitesavailable", "/etc/apache2/sites-available/") + "*";
                 stdout.append(this.execute(command));
                 break;
         }
-        
+
         ArrayList domains = new ArrayList();
         for (String line : stdout.toString().split("\n")) {
             if (!line.trim().equals("")) {
@@ -229,10 +231,10 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
                     domains.add(domain);
                     LOGGER.debug("found domain " + domain);
                 }
-            }            
+            }
         }
         LOGGER.debug("found " + domains.size() + " domains");
-        
+
         String[] tmp = new String[domains.size()];
         return (String[])domains.toArray(tmp);
     }
@@ -242,34 +244,34 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
         if(domain != null) {
             String template = this.getTemplate().replace("%DOMAIN%", domain);
 
-            // @TODO setup aliases for domain ...                
+            // @TODO setup aliases for domain ...
 
             Stack<String> commands = new Stack();
 
-            String filename = this.getProperties().getProperty("connector.apachessh.sitesavailable", 
+            String filename = this.getProperties().getProperty("connector.apachessh.sitesavailable",
                     "/etc/apache2/sites-available/") + domain + ".conf";
             String command1 = "echo '" + template + "' >> " + filename;
             commands.push(command1);
 
             String docroot = this.getDocumentRoot(template);
-            docroot += (docroot.endsWith("/") ? "" : "/");       
+            docroot += (docroot.endsWith("/") ? "" : "/");
             if (!docroot.equals("")) {
-                String command4 = "mkdir -p " + docroot + "{";                        
+                String command4 = "mkdir -p " + docroot + "{";
                 command4 += WebserverConnectorService.RESOURCE_TYPE_JAVASCRIPT + ",";
                 command4 += WebserverConnectorService.RESOURCE_TYPE_OTHER + ",";
                 command4 += WebserverConnectorService.RESOURCE_TYPE_STYLESHEET;
                 command4 += "}";
                 commands.push(command4);
-                // all images will be stored in a global directory and not in a domain specific one 
+                // all images will be stored in a global directory and not in a domain specific one
                 // so that it is necessary to create the global directory and a symlink
                 String command5 = "mkdir -p " + RESOURCE_IMG_FOLDER;
                 commands.push(command5);
-                String command6 = "ln -s " + RESOURCE_IMG_FOLDER + " " 
+                String command6 = "ln -s " + RESOURCE_IMG_FOLDER + " "
                                     + docroot + WebserverConnectorService.RESOURCE_TYPE_IMAGE;
                 commands.push(command6);
             }
 
-            while(!commands.empty()) {            
+            while(!commands.empty()) {
                 this.execute(commands.firstElement());
                 commands.remove(0);
             }
@@ -284,7 +286,7 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
     }
 
     @Override
-    public void enableDomain(String domain) {        
+    public void enableDomain(String domain) {
         String command = "sudo a2ensite " + domain + ".conf && sudo /etc/init.d/apache2 reload";
         this.execute(command);
     }
@@ -296,15 +298,15 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
     }
 
     @Override
-    public String[] getResources(String domain, String type) {        
+    public String[] getResources(String domain, String type) {
         try {
             String[] types = null;
             String[] domains = this.getDomains(WebserverConnectorService.DOMAIN_FILTER_ALL);
-            
+
             if (domain != null) {
                 domains = new String[] { domain };
             }
-            
+
             if (type != null) {
                 types = new String[] { type };
             }
@@ -316,11 +318,11 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
                     WebserverConnectorService.RESOURCE_TYPE_STYLESHEET
                 };
             }
-            
+
             Stack<String> resources = new Stack();
             ChannelSftp channel = (ChannelSftp)this.getSession().openChannel("sftp");
             channel.connect();
-      
+
             String rootPath = "/var/www";
             Vector rootPathResult = channel.ls(rootPath);
             Stack<String> domainPaths = new Stack();
@@ -337,13 +339,13 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
                         break;
                     }
                 }
-                
+
                 if (exists == true) {
                     for (String curType : types) {
                         String path = "/var/www/" + curDomain + "/" + curType;
                         LOGGER.debug("listing resources for " + path);
 
-                        Vector files = channel.ls(path);                    
+                        Vector files = channel.ls(path);
                         for (Object file : files) {
                             String filename = this.getFilenameForLs(file.toString());
                             if (!filename.equals(".") && !filename.equals("..")) {
@@ -353,23 +355,68 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
                     }
                 }
             }
-            
+
             channel.disconnect();
-            
+
             String[] tmp = new String[resources.size()];
             return (String[])resources.toArray(tmp);
-        } 
+        }
         catch (JSchException | SftpException ex) {
             LOGGER.error("error while listing available resources", ex);
         }
-        
+
         return new String[] {};
+    }
+
+    @Override
+    public List<String> getResources(final String domain) {
+        List<String> fileNames = new ArrayList<>();
+        try {
+            if (domain != null && !domain.isEmpty()) {
+
+                ChannelSftp channel = (ChannelSftp) getSession().openChannel("sftp");
+                channel.connect();
+
+                String path = "/var/www/" + domain;
+                fileNames = readFilenames(channel, path, domain);
+
+                channel.disconnect();
+            }
+        } catch (JSchException ex) {
+            LOGGER.error("ApacheSSHConnectorService.getResources", ex);
+        }
+
+        return fileNames;
+    }
+
+    private List<String> readFilenames(final ChannelSftp channel, final String path, final String domain) {
+        List<String> filenames = new ArrayList<>();
+        try {
+            for (Object file :  channel.ls(path)) {
+                String filename = getFilenameForLs(file.toString());
+                if (!filename.equals(".") && !filename.equals("..")
+                        && !filename.equals("wp") && !filename.equals("img")) {
+                    File f = new File(path + "/" + filename);
+                    if (f.isDirectory()) {
+                        filenames.addAll(readFilenames(channel, path + "/" + filename, domain));
+
+                    } else if (f.isFile()) {
+                        String qualifiedFilename = path + "/" + filename;
+                        qualifiedFilename = qualifiedFilename.replaceAll("/var/www/" + domain + "/", "");
+                        filenames.add(qualifiedFilename);
+                    }
+                }
+            }
+        } catch (SftpException ex) {
+            LOGGER.error("ApacheSSHConnectorService.readFilenames", ex);
+        }
+        return filenames;
     }
 
     @Override
     public void createResource(String domain, String type, String src, String dstName) throws JSchException,
             SftpException {
-        
+
         ChannelSftp channel = (ChannelSftp)this.getSession().openChannel("sftp");
         channel.connect();
 
@@ -377,12 +424,12 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
         channel.put(src, path);
         channel.disconnect();
     }
-    
+
     /**
      * This methods creates an image file on the webserver. All images should be stored in a global directory.
-     * 
+     *
      * @param src
-     * @param dstName 
+     * @param dstName
      */
     @Override
     public void createImage(InputStream src, String dstName) throws JSchException, SftpException {
@@ -400,7 +447,7 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
     @Override
     public void createResource(String domain, String type, InputStream src, String dstName) throws JSchException,
             SftpException {
-        
+
         String folder = "/var/www/" + domain + "/" + type + "/";
         String command = "mkdir -p " + folder;
         this.execute(command);
@@ -410,7 +457,37 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
         String path = folder + "/" + dstName;
         channel.put(src, path);
         channel.disconnect();
-        
+
+    }
+
+    @Override
+    public void createWebserverResource(final String domain, final InputStream src, final String uploadPath,
+            final String dstName) throws JSchException, SftpException {
+        createDirectoryForWebserverResource(domain, uploadPath);
+        String folder = "/var/www/" + domain + "/";
+        if (uploadPath != null && !uploadPath.isEmpty()) {
+            folder = folder + uploadPath;
+        }
+
+        ChannelSftp channel = (ChannelSftp)this.getSession().openChannel("sftp");
+        channel.connect();
+        String path = folder + "/" + dstName;
+        channel.put(src, path);
+        channel.disconnect();
+
+    }
+
+    private void createDirectoryForWebserverResource(final String domain, final String uploadPath)
+            throws JSchException {
+        String folder = "/var/www/" + domain + "/";
+        if (uploadPath != null && !uploadPath.isEmpty()) {
+            folder = folder + uploadPath + "/";
+        }
+        String command = "mkdir -p " + folder;
+        this.execute(command);
+        ChannelSftp channel = (ChannelSftp) this.getSession().openChannel("sftp");
+        channel.connect();
+
     }
 
     @Override
@@ -421,13 +498,24 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
         String path = "/var/www/" + domain + "/" + type + "/" + name;
         channel.rm(path);
         channel.disconnect();
-    }        
+    }
+
+    @Override
+    public void deleteWebserverResource(final String domain, final String name)
+            throws JSchException, SftpException {
+        ChannelSftp channel = (ChannelSftp)this.getSession().openChannel("sftp");
+        channel.connect();
+
+        String path = "/var/www/" + domain + "/" + name;
+        channel.rm(path);
+        channel.disconnect();
+    }
 
     /**
      * Copies the resources from the the source domain to the destination domain
-     * @param sourceDomain the folder name representing the domain, stored under '/var/www/' the resources to be copied 
+     * @param sourceDomain the folder name representing the domain, stored under '/var/www/' the resources to be copied
      *        from
-     * @param destinationDomain the destination folder name representing the domain under '/var/www/' the resources to 
+     * @param destinationDomain the destination folder name representing the domain under '/var/www/' the resources to
      *        be copied to
      */
     @Override
@@ -436,5 +524,28 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
         String destinationPath = "/var/www/" + destinationDomain + "/";
         String command = "cp -R " + sourcePath + "* " + destinationPath;
         this.execute(command);
+    }
+
+    @Override
+    public void copySingleResource(final String sourceDomain, final String destinationDomain,
+            final String type, final String resourceName) {
+        String sourcePath = "/var/www/" + sourceDomain + "/" + resourceName;
+        String destinationPath = "/var/www/" + destinationDomain + "/" + resourceName;
+        if (type != null && type.isEmpty()) {
+            sourcePath = "/var/www/" + sourceDomain + "/" + type + "/" + resourceName;
+            destinationPath = "/var/www/" + destinationDomain + "/" + type + "/" + resourceName;
+        }
+
+        String command = "cp -R " + sourcePath + " " + destinationPath;
+        this.execute(command);
+    }
+
+    @Override
+    public InputStream readWebserverResource(final String domain, final String name)
+            throws JSchException, SftpException {
+        ChannelSftp channel = (ChannelSftp)this.getSession().openChannel("sftp");
+        channel.connect();
+        String path = "/var/www/" + domain + "/" + name;
+        return channel.get(path);
     }
 }

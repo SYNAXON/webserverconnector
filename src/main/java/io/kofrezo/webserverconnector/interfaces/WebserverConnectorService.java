@@ -61,97 +61,90 @@ public interface WebserverConnectorService {
     void disableDomain(final String domain);
 
      /**
-     * Returns an array of available resource for the given domain and type. If type is null the method
-     * returns all types. If domain is null the method returns all domains.
+     * Returns an array of available resources.
      *
-     * @param domain the domain for which the resources should be detected
-     * @param type resources can be filterery by type
-     * @return an aary of available resources for the given domain
+     * @return an array of available resources
      */
-    String[] getResources(final String domain, final String type);
+    List<String> getResources();
 
      /**
-     * Returns a list of available resources for the given domain.
+     * Returns an array of available resources for the given domain.
      *
      * @param domain the domain for which the resources should be detected
-     * @return a list of available resources for the given domain
+     * @return an array of available resources for the given domain
      */
     List<String> getResources(final String domain);
 
-    /**
-     * Uploads a resource.
+     /**
+     * Returns an array of available resources for the given domain and type.
      *
-     * @param domain the domain for which the resource should be uploaded
-     * @param type the type of the new resource
-     * @param src the src of the resource
-     * @param dstName the name of the resource
-     * @throws JSchException exception will be thrown if anything goes wrong with the SSH protocol
-     * @throws SftpException exception will be thrown if anything goes wrong while using the SFTP protocol
+     * @param domain the domain for which the resources should be detected
+     * @param type resources can be filterery by type
+     * @return an array of available resources for the given domain and type
      */
-    void createResource(final String domain, final String type, final String src, final String dstName)
-            throws JSchException, SftpException;
+    List<String> getResources(final String domain, final String type);
 
     /**
-     * Uploads a webserver resource to given uploadPath (optional) beginning from the root directory of the
-     * given domain.
-     *
-     * @param domain the domain for which the webserver resource should be uploaded
-     * @param src the src of the webserver resource as an InputStream object
-     * @param uploadPath the upload path
-     * @param dstName the name of the webserver resource
-     * @throws JSchException exception will be thrown if anything goes wrong with the SSH protocol
-     * @throws SftpException exception will be thrown if anything goes wrong while using the SFTP protocol
-     */
-    void createWebserverResource(final String domain, final InputStream src, final String uploadPath,
-            final String dstName) throws JSchException, SftpException;
-
-    /**
-     * This methods creates an image file on the webserver. All images should be stored in a global directory.
+     * This methods creates an image file representing a CmfBinaryContent on the webserver.
+     * All images should be stored in a global directory.
      *
      * @param src the src of the image file as an InputStream object
-     * @param dstName the name of timage file
+     * @param resourceName the name of image file
      * @throws JSchException exception will be thrown if anything goes wrong with the SSH protocol
      * @throws SftpException exception will be thrown if anything goes wrong while using the SFTP protocol
      */
-    void createImage(final InputStream src, final String dstName) throws JSchException, SftpException;
+    void createImageForCmfBinaryContent(final InputStream src, final String resourceName)
+            throws JSchException, SftpException;
 
     /**
-     * Uploads a resource.
+     * Uploads a resource to the root directory of the given domain.
      *
-     * @param domain the domain for which the resource should be uploaded
-     * @param type the type of the new resource
+     * @param domain the domain to which the resource should be uploaded
+     * @param resourceName the name of the resource
      * @param src the src of the resource as an InputStream object
-     * @param dstName the name of the resource
      * @throws JSchException exception will be thrown if anything goes wrong with the SSH protocol
      * @throws SftpException exception will be thrown if anything goes wrong while using the SFTP protocol
      */
-    void createResource(final String domain, final String type, final InputStream src, final String dstName)
+    void createResource(final String domain, final String resourceName, final InputStream src)
             throws JSchException, SftpException;
 
     /**
-     * Deletes a resource.
+     * Uploads a resource to the given uploadPath beginning from the root directory of the given domain.
      *
-     * @param domain the domain for which the resource should be deleted
-     * @param type the type of the resource
-     * @param name the name of the resource
+     * @param domain the domain to which the resource should be uploaded
+     * @param uploadPath the path to which the resource should be uploaded (optional)
+     * @param resourceName the name of the resource
+     * @param src the src of the resource as an InputStream object
      * @throws JSchException exception will be thrown if anything goes wrong with the SSH protocol
      * @throws SftpException exception will be thrown if anything goes wrong while using the SFTP protocol
      */
-    void deleteResource(final String domain, final String type, final String name)
+    void createResource(final String domain, final String uploadPath, final String resourceName,
+            final InputStream src) throws JSchException, SftpException;
+
+    /**
+     * Deletes a resource from the given domain directory.
+     *
+     * @param domain the domain for which the resource that should be deleted
+     * @param resourceName the name of the resource that should be deleted
+     * @throws JSchException exception will be thrown if anything goes wrong with the SSH protocol
+     * @throws SftpException exception will be thrown if anything goes wrong while using the SFTP protocol
+     */
+    void deleteResource(final String domain, final String resourceName) throws JSchException, SftpException;
+
+    /**
+     * Deletes a resource from given deletePath beginning from the root directory of the given domain.
+     *
+     * @param domain the domain for which the resource that should be deleted
+     * @param deletePath the path from where the resource should be deleted (optional)
+     * @param resourceName the name of the resource that should be deleted
+     * @throws JSchException exception will be thrown if anything goes wrong with the SSH protocol
+     * @throws SftpException exception will be thrown if anything goes wrong while using the SFTP protocol
+     */
+    void deleteResource(final String domain, final String deletePath, final String resourceName)
             throws JSchException, SftpException;
 
     /**
-     * Deletes a webserver resource from the given domain.
-     *
-     * @param domain the domain for which the webserver resource should be uploaded
-     * @param name the name of the webserver resource
-     * @throws JSchException exception will be thrown if anything goes wrong with the SSH protocol
-     * @throws SftpException exception will be thrown if anything goes wrong while using the SFTP protocol
-     */
-    void deleteWebserverResource(final String domain, final String name) throws JSchException, SftpException;
-
-    /**
-     * Copies the resources from the the source domain to the destination domain.
+     * Copies all the resources from the the source domain to the destination domain.
      *
      * @param sourceDomain the domain the resources to be copied from
      * @param destinationDomain the domain the resources to be copied to
@@ -163,21 +156,31 @@ public interface WebserverConnectorService {
      *
      * @param sourceDomain the domain the resources to be copied from
      * @param destinationDomain the domain the resources to be copied to
-     * @param type the mimetype of the ressources
+     * @param copyPath the path from where the resource should be copied (optional)
      * @param resourceName the name of the ressource to copy
      */
-    void copySingleResource(final String sourceDomain, final String destinationDomain, final String type,
+    void copySingleResource(final String sourceDomain, final String destinationDomain, final String copyPath,
             final String resourceName);
 
     /**
-     * Returns an InputStream for a webserver resource.
+     * Copies a single resource from the the source domain to the destination domain.
      *
-     * @param domain the domain for which the webserver resource should be uploaded
-     * @param name the name of the webserver resource
-     * @return an InputStream for a webserver resource
+     * @param sourceDomain the domain the resources to be copied from
+     * @param destinationDomain the domain the resources to be copied to
+     * @param resourceName the name of the ressource to copy
+     */
+    void copySingleResource(final String sourceDomain, final String destinationDomain,
+            final String resourceName);
+
+    /**
+     * Returns an InputStream for a resource.
+     *
+     * @param path the path of the resource
+     * @param resourceName the name of the ressource
+     * @return an InpuStream for the resource
      * @throws JSchException exception will be thrown if anything goes wrong with the SSH protocol
      * @throws SftpException exception will be thrown if anything goes wrong while using the SFTP protocol
      */
-    InputStream readWebserverResource(final String domain, final String name)
+    InputStream readStreamForWebserverFile(final String path, final String resourceName)
             throws JSchException, SftpException;
 }

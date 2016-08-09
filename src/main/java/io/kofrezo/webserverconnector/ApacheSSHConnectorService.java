@@ -14,8 +14,10 @@ import java.io.InputStream;
 import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Properties;
+import java.util.Set;
 import java.util.Stack;
 import javax.annotation.PreDestroy;
 import javax.enterprise.context.RequestScoped;
@@ -37,6 +39,8 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
 
     private static final Logger LOGGER = LogManager.getLogger(ApacheSSHConnectorService.class);
     private static final long serialVersionUID = -1150221495148210253L;
+
+    private static final String ROOT_DIR = "/var/www/";
 
     private final int bufferSize = 1024;
     private final String ENVIRMONMENT = System.getProperty("cmf.environment", "development");
@@ -313,39 +317,57 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
     }
 
     @Override
-    public String[] getResources(final String domain, final String type) {
+    public List<String> getResources() {
+        return getResources(null, null);
+    }
+
+    @Override
+    public List<String> getResources(final String domain) {
+        return getResources(domain, null);
+    }
+
+    @Override
+    public List<String> getResources(final String domain, final String type) {
+        Set<String> fileNames = new HashSet<>();
         try {
-            String[] types = addTypes(type);
             String[] domains = addDomains(domain);
-            Stack<String> resources = new Stack();
             ChannelSftp channel = (ChannelSftp) getSession().openChannel("sftp");
             channel.connect();
-            Stack<String> domainPaths = buildDomainPaths(channel);
+            Stack<String> domainPathes = buildDomainPathes(channel);
 
             for (String curDomain : domains) {
-                if (domainShouldBeProcessed(curDomain, domainPaths)) {
-                    for (String curType : types) {
-                        String path = "/var/www/" + curDomain + "/" + curType;
-                        LOGGER.debug("listing resources for " + path);
-                        addResourcesForDomainPath(channel, path, resources);
+                if (domainShouldBeProcessed(curDomain, domainPathes)) {
+                    String path;
+                    if(type != null && !type.isEmpty()) {
+                      path = ROOT_DIR + curDomain + "/" + type;
+                    } else {
+                       path = ROOT_DIR + curDomain;
                     }
+                    LOGGER.debug("listing resources for " + path);
+                    fileNames.addAll(readFilenames(channel, path, domain));
                 }
             }
-
             channel.disconnect();
-
-            String[] tmp = new String[resources.size()];
-            return (String[]) resources.toArray(tmp);
         } catch (JSchException | SftpException ex) {
             LOGGER.error("error while listing available resources", ex);
         }
 
-        return new String[]{};
+        return new ArrayList<>(fileNames);
     }
 
-    private Stack<String> buildDomainPaths(final ChannelSftp channel) throws SftpException {
+    private String[] addDomains(final String domain) {
+        String[] domains;
+        if (domain != null && !domain.isEmpty()) {
+            domains = new String[]{domain};
+        } else {
+            domains = getDomains(WebserverConnectorService.DOMAIN_FILTER_ALL);
+        }
+        return domains;
+    }
+
+    private Stack<String> buildDomainPathes(final ChannelSftp channel) throws SftpException {
         Stack<String> domainPaths = new Stack();
-        String rootPath = "/var/www";
+        String rootPath = ROOT_DIR;
         for (Object file : channel.ls(rootPath)) {
             String filename = getFilenameForLs(file.toString());
             domainPaths.push(filename);
@@ -353,8 +375,8 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
         return domainPaths;
     }
 
-    private boolean domainShouldBeProcessed(final String domain, final Stack<String> domainPaths) {
-        for (String domainPath : domainPaths) {
+    private boolean domainShouldBeProcessed(final String domain, final Stack<String> domainPathes) {
+        for (String domainPath : domainPathes) {
             if (domainPath.equals(domain)) {
                 return true;
             }
@@ -362,62 +384,8 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
         return false;
     }
 
-    private void addResourcesForDomainPath(final ChannelSftp channel, final String path,
-            final Stack<String> resources) throws SftpException {
-        for (Object file : channel.ls(path)) {
-            String filename = getFilenameForLs(file.toString());
-            if (!filename.equals(".") && !filename.equals("..")) {
-                resources.push(path + "/" + filename);
-            }
-        }
-    }
-
-    private String[] addTypes(final String type) {
-        String[] types;
-        if (type != null) {
-            types = new String[]{type};
-        } else {
-            types = new String[]{
-                WebserverConnectorService.RESOURCE_TYPE_IMAGE,
-                WebserverConnectorService.RESOURCE_TYPE_JAVASCRIPT,
-                WebserverConnectorService.RESOURCE_TYPE_OTHER,
-                WebserverConnectorService.RESOURCE_TYPE_STYLESHEET
-            };
-        }
-        return types;
-    }
-
-    private String[] addDomains(final String domain) {
-        String[] domains = getDomains(WebserverConnectorService.DOMAIN_FILTER_ALL);
-        if (domain != null) {
-            domains = new String[]{domain};
-        }
-        return domains;
-    }
-
-    @Override
-    public List<String> getResources(final String domain) {
-        List<String> fileNames = new ArrayList<>();
-        try {
-            if (domain != null && !domain.isEmpty()) {
-
-                ChannelSftp channel = (ChannelSftp) getSession().openChannel("sftp");
-                channel.connect();
-
-                String path = "/var/www/" + domain;
-                fileNames = readFilenames(channel, path, domain);
-
-                channel.disconnect();
-            }
-        } catch (JSchException ex) {
-            LOGGER.error("ApacheSSHConnectorService.getResources", ex);
-        }
-
-        return fileNames;
-    }
-
-    private List<String> readFilenames(final ChannelSftp channel, final String path, final String domain) {
-        List<String> filenames = new ArrayList<>();
+    private Set<String> readFilenames(final ChannelSftp channel, final String path, final String domain) {
+        Set<String> fileNames =  new HashSet<>();
         try {
             for (Object file : channel.ls(path)) {
                 String filename = getFilenameForLs(file.toString());
@@ -425,85 +393,62 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
                         && !filename.equals("wp") && !filename.equals("img")) {
                     File f = new File(path + "/" + filename);
                     if (f.isDirectory()) {
-                        filenames.addAll(readFilenames(channel, path + "/" + filename, domain));
+                        fileNames.addAll(readFilenames(channel, path + "/" + filename, domain));
 
                     } else if (f.isFile()) {
                         String qualifiedFilename = path + "/" + filename;
-                        qualifiedFilename = qualifiedFilename.replaceAll("/var/www/" + domain + "/", "");
-                        filenames.add(qualifiedFilename);
+                        qualifiedFilename = qualifiedFilename.replaceAll(ROOT_DIR + domain + "/", "");
+                        fileNames.add(qualifiedFilename);
                     }
                 }
             }
         } catch (SftpException ex) {
             LOGGER.error("ApacheSSHConnectorService.readFilenames", ex);
         }
-        return filenames;
+        return fileNames;
     }
 
     @Override
-    public void createResource(final String domain, final String type, final String src, final String dstName)
+    public void createImageForCmfBinaryContent(final InputStream src, final String resourceName)
             throws JSchException, SftpException {
-
-        ChannelSftp channel = (ChannelSftp) getSession().openChannel("sftp");
-        channel.connect();
-
-        String path = "/var/www/" + domain + "/" + type + "/" + dstName;
-        channel.put(src, path);
-        channel.disconnect();
-    }
-
-    @Override
-    public void createImage(final InputStream src, final String dstName) throws JSchException, SftpException {
-        String folder = RESOURCE_IMG_FOLDER + "/" + dstName.substring(0, dstName.lastIndexOf('/'));
+        String folder = RESOURCE_IMG_FOLDER + "/" + resourceName.substring(0, resourceName.lastIndexOf('/'));
         String command = "mkdir -p " + folder;
         execute(command);
         ChannelSftp channel = (ChannelSftp) getSession().openChannel("sftp");
         channel.connect();
 
-        String path = RESOURCE_IMG_FOLDER + "/" + dstName;
+        String path = RESOURCE_IMG_FOLDER + "/" + resourceName;
         channel.put(src, path);
         channel.disconnect();
     }
 
     @Override
-    public void createResource(final String domain, final String type, final InputStream src,
-            final String dstName) throws JSchException, SftpException {
-
-        String folder = "/var/www/" + domain + "/" + type + "/";
-        String command = "mkdir -p " + folder;
-        execute(command);
-        ChannelSftp channel = (ChannelSftp) getSession().openChannel("sftp");
-        channel.connect();
-
-        String path = folder + "/" + dstName;
-        channel.put(src, path);
-        channel.disconnect();
-
+    public void createResource(final String domain, final String resourceName, final InputStream src)
+            throws JSchException, SftpException {
+        createResource(domain, null, resourceName, src);
     }
 
     @Override
-    public void createWebserverResource(final String domain, final InputStream src, final String uploadPath,
-            final String dstName) throws JSchException, SftpException {
-        createDirectoryForWebserverResource(domain, uploadPath);
-        String folder = "/var/www/" + domain + "/";
+    public void createResource(final String domain, final String uploadPath, final String resourceName,
+            final InputStream src) throws JSchException, SftpException {
+        String folder = ROOT_DIR + domain + "/";
         if (uploadPath != null && !uploadPath.isEmpty()) {
             folder = folder + uploadPath;
+            if(!folder.endsWith("/")) {
+               folder = folder + "/";
+            }
         }
-
+        createDirectoryForResource(folder);
         ChannelSftp channel = (ChannelSftp) getSession().openChannel("sftp");
         channel.connect();
-        String path = folder + "/" + dstName;
+        String path = folder + resourceName;
         channel.put(src, path);
         channel.disconnect();
 
     }
 
-    private void createDirectoryForWebserverResource(final String domain, final String uploadPath)
+    private void createDirectoryForResource(final String folder)
             throws JSchException {
-        String folder = "/var/www/" + domain + "/";
-        if (uploadPath != null && !uploadPath.isEmpty()) {
-            folder = folder + uploadPath + "/";
-        }
         String command = "mkdir -p " + folder;
         execute(command);
         ChannelSftp channel = (ChannelSftp) getSession().openChannel("sftp");
@@ -512,43 +457,50 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
     }
 
     @Override
-    public void deleteResource(final String domain, final String type, final String name)
+    public void deleteResource(final String domain, final String resourceName)
             throws JSchException, SftpException {
-        ChannelSftp channel = (ChannelSftp) getSession().openChannel("sftp");
-        channel.connect();
-
-        String path = "/var/www/" + domain + "/" + type + "/" + name;
-        channel.rm(path);
-        channel.disconnect();
+        deleteResource(domain, null, resourceName);
     }
 
     @Override
-    public void deleteWebserverResource(final String domain, final String name)
+    public void deleteResource(final String domain, final String deletePath, final String resourceName)
             throws JSchException, SftpException {
         ChannelSftp channel = (ChannelSftp) getSession().openChannel("sftp");
         channel.connect();
-
-        String path = "/var/www/" + domain + "/" + name;
+        String folder = ROOT_DIR + domain + "/";
+        if (deletePath != null && !deletePath.isEmpty()) {
+            folder = folder + deletePath;
+            if(!folder.endsWith("/")) {
+               folder = folder + "/";
+            }
+        }
+        String path = folder + resourceName;
         channel.rm(path);
         channel.disconnect();
     }
 
     @Override
     public void copyResources(final String sourceDomain, final String destinationDomain) {
-        String sourcePath = "/var/www/" + sourceDomain + "/";
-        String destinationPath = "/var/www/" + destinationDomain + "/";
+        String sourcePath = ROOT_DIR + sourceDomain + "/";
+        String destinationPath = ROOT_DIR + destinationDomain + "/";
         String command = "cp -R " + sourcePath + "* " + destinationPath;
         execute(command);
     }
 
     @Override
     public void copySingleResource(final String sourceDomain, final String destinationDomain,
-            final String type, final String resourceName) {
-        String sourcePath = "/var/www/" + sourceDomain + "/" + resourceName;
-        String destinationPath = "/var/www/" + destinationDomain + "/" + resourceName;
-        if (type != null && type.isEmpty()) {
-            sourcePath = "/var/www/" + sourceDomain + "/" + type + "/" + resourceName;
-            destinationPath = "/var/www/" + destinationDomain + "/" + type + "/" + resourceName;
+            final String resourceName) {
+        copySingleResource(sourceDomain, destinationDomain, null, resourceName);
+    }
+
+    @Override
+    public void copySingleResource(final String sourceDomain, final String destinationDomain,
+            final String copyPath, final String resourceName) {
+        String sourcePath = ROOT_DIR + sourceDomain + "/" + resourceName;
+        String destinationPath = ROOT_DIR + destinationDomain + "/" + resourceName;
+        if (copyPath != null && copyPath.isEmpty()) {
+            sourcePath = ROOT_DIR + sourceDomain + "/" + copyPath + "/" + resourceName;
+            destinationPath = ROOT_DIR + destinationDomain + "/" + copyPath + "/" + resourceName;
         }
 
         String command = "cp -R " + sourcePath + " " + destinationPath;
@@ -556,11 +508,14 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
     }
 
     @Override
-    public InputStream readWebserverResource(final String domain, final String name)
+    public InputStream readStreamForWebserverFile(final String path, final String resourceName)
             throws JSchException, SftpException {
         ChannelSftp channel = (ChannelSftp) getSession().openChannel("sftp");
         channel.connect();
-        String path = "/var/www/" + domain + "/" + name;
-        return channel.get(path);
+        String folder = path;
+        if(!folder.endsWith("/")) {
+           folder = folder + "/";
+        }
+        return channel.get(ROOT_DIR + folder + resourceName);
     }
 }

@@ -173,14 +173,11 @@ public interface WebserverConnectorService {
             final String resourceName);
 
     /**
-     * Returns an InputStream for a resource.
+     * Returns a byte array for a resource.
      *
      * @param path the path of the resource
      * @param resourceName the name of the ressource
-     * @return an InpuStream for the resource
-     * @throws JSchException exception will be thrown if anything goes wrong with the SSH protocol
-     * @throws SftpException exception will be thrown if anything goes wrong while using the SFTP protocol
+     * @return a byte arrayfor the resource
      */
-    InputStream readStreamForWebserverFile(final String path, final String resourceName)
-            throws JSchException, SftpException;
+    byte[] readStreamForWebserverFile(final String path, final String resourceName);
 }

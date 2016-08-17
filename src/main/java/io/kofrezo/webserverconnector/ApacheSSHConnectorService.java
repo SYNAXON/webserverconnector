@@ -8,6 +8,7 @@ import com.jcraft.jsch.Session;
 import com.jcraft.jsch.SftpException;
 import io.kofrezo.webserverconnector.interfaces.WebserverConnectorService;
 import java.io.BufferedInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -508,14 +509,39 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
     }
 
     @Override
-    public InputStream readStreamForWebserverFile(final String path, final String resourceName)
-            throws JSchException, SftpException {
-        ChannelSftp channel = (ChannelSftp) getSession().openChannel("sftp");
-        channel.connect();
-        String folder = path;
-        if(!folder.endsWith("/")) {
-           folder = folder + "/";
+    public byte[] readStreamForWebserverFile(final String path, final String resourceName) {
+        byte[] data = null;
+        InputStream stream = null;
+        ChannelSftp channel = null;
+        try {
+            channel = (ChannelSftp) getSession().openChannel("sftp");
+
+            channel.connect();
+            String folder = path;
+            if (!folder.endsWith("/")) {
+                folder = folder + "/";
+            }
+            stream = channel.get(ROOT_DIR + folder + resourceName);
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            byte[] buffer = new byte[1024];
+            int read = 0;
+            while ((read = stream.read(buffer, 0, buffer.length)) != -1) {
+                baos.write(buffer, 0, read);
+            }
+            baos.flush();
+            data = baos.toByteArray();
+            baos.close();
+            stream.close();
+            channel.disconnect();
+        } catch (JSchException | SftpException ex) {
+            LOGGER.warn("ApacheSSHConnectorService.readWebserverResource - no such file: " + path + resourceName);
+        } catch (IOException ex) {
+            LOGGER.warn("ApacheSSHConnectorService.readWebserverResource", ex);
+        } finally {
+            if (channel != null && channel.isConnected()) {
+                channel.disconnect();
+            }
         }
-        return channel.get(ROOT_DIR + folder + resourceName);
+        return data;
     }
 }

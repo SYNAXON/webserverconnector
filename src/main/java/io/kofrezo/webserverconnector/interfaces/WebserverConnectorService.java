@@ -148,8 +148,10 @@ public interface WebserverConnectorService {
      *
      * @param sourceDomain the domain the resources to be copied from
      * @param destinationDomain the domain the resources to be copied to
+     * @throws JSchException exception will be thrown if anything goes wrong with the SSH protocol
      */
-    void copyResources(final String sourceDomain, final String destinationDomain);
+    void copyResources(final String sourceDomain, final String destinationDomain)
+            throws JSchException;
 
     /**
      * Copies a single resource from the the source domain to the destination domain.
@@ -158,9 +160,10 @@ public interface WebserverConnectorService {
      * @param destinationDomain the domain the resources to be copied to
      * @param copyPath the path from where the resource should be copied (optional)
      * @param resourceName the name of the ressource to copy
+     * @throws JSchException exception will be thrown if anything goes wrong with the SSH protocol
      */
     void copySingleResource(final String sourceDomain, final String destinationDomain, final String copyPath,
-            final String resourceName);
+            final String resourceName) throws JSchException;
 
     /**
      * Copies a single resource from the the source domain to the destination domain.
@@ -168,9 +171,10 @@ public interface WebserverConnectorService {
      * @param sourceDomain the domain the resources to be copied from
      * @param destinationDomain the domain the resources to be copied to
      * @param resourceName the name of the ressource to copy
+     * @throws JSchException exception will be thrown if anything goes wrong with the SSH protocol
      */
     void copySingleResource(final String sourceDomain, final String destinationDomain,
-            final String resourceName);
+            final String resourceName) throws JSchException;
 
     /**
      * Returns a byte array for a resource.

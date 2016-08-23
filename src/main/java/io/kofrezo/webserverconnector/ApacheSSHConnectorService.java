@@ -432,12 +432,9 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
     @Override
     public void createResource(final String domain, final String uploadPath, final String resourceName,
             final InputStream src) throws JSchException, SftpException {
-        String folder = ROOT_DIR + domain + "/";
+        String folder = checkFolderEnding(ROOT_DIR + domain);
         if (uploadPath != null && !uploadPath.isEmpty()) {
-            folder = folder + uploadPath;
-            if(!folder.endsWith("/")) {
-               folder = folder + "/";
-            }
+            folder = checkFolderEnding(folder + uploadPath);
         }
         createDirectoryForResource(folder);
         ChannelSftp channel = (ChannelSftp) getSession().openChannel("sftp");
@@ -468,12 +465,9 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
             throws JSchException, SftpException {
         ChannelSftp channel = (ChannelSftp) getSession().openChannel("sftp");
         channel.connect();
-        String folder = ROOT_DIR + domain + "/";
+        String folder = checkFolderEnding(ROOT_DIR + domain);
         if (deletePath != null && !deletePath.isEmpty()) {
-            folder = folder + deletePath;
-            if(!folder.endsWith("/")) {
-               folder = folder + "/";
-            }
+            folder = checkFolderEnding(folder + deletePath);
         }
         String path = folder + resourceName;
         channel.rm(path);
@@ -481,31 +475,44 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
     }
 
     @Override
-    public void copyResources(final String sourceDomain, final String destinationDomain) {
+    public void copyResources(final String sourceDomain, final String destinationDomain) throws JSchException {
         String sourcePath = ROOT_DIR + sourceDomain + "/";
         String destinationPath = ROOT_DIR + destinationDomain + "/";
+        String destinationDirectory = destinationPath.substring(0, destinationPath.lastIndexOf("/"));
+        createDirectoryForResource(destinationDirectory);
         String command = "cp -R " + sourcePath + "* " + destinationPath;
         execute(command);
     }
 
     @Override
     public void copySingleResource(final String sourceDomain, final String destinationDomain,
-            final String resourceName) {
+            final String resourceName) throws JSchException {
         copySingleResource(sourceDomain, destinationDomain, null, resourceName);
     }
 
     @Override
     public void copySingleResource(final String sourceDomain, final String destinationDomain,
-            final String copyPath, final String resourceName) {
-        String sourcePath = ROOT_DIR + sourceDomain + "/" + resourceName;
-        String destinationPath = ROOT_DIR + destinationDomain + "/" + resourceName;
-        if (copyPath != null && copyPath.isEmpty()) {
-            sourcePath = ROOT_DIR + sourceDomain + "/" + copyPath + "/" + resourceName;
-            destinationPath = ROOT_DIR + destinationDomain + "/" + copyPath + "/" + resourceName;
+            final String copyPath, final String resourceName) throws JSchException {
+        String sourcePath = checkFolderEnding(ROOT_DIR + sourceDomain);
+        String destinationPath = checkFolderEnding(ROOT_DIR + destinationDomain);
+        if (copyPath != null && !copyPath.isEmpty()) {
+            String additionalPath = checkFolderEnding(copyPath);
+            sourcePath = sourcePath + additionalPath;
+            destinationPath = destinationPath + additionalPath;
         }
-
+        sourcePath = sourcePath + resourceName;
+        destinationPath = destinationPath + resourceName;
+        String destinationDirectory = destinationPath.substring(0, destinationPath.lastIndexOf("/"));
+        createDirectoryForResource(destinationDirectory);
         String command = "cp -R " + sourcePath + " " + destinationPath;
         execute(command);
+    }
+
+    private String checkFolderEnding(final String folder) {
+        if (!folder.endsWith("/")) {
+            return folder + "/";
+        }
+        return folder;
     }
 
     @Override
@@ -517,10 +524,7 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
             channel = (ChannelSftp) getSession().openChannel("sftp");
 
             channel.connect();
-            String folder = path;
-            if (!folder.endsWith("/")) {
-                folder = folder + "/";
-            }
+            String folder = checkFolderEnding(path);
             stream = channel.get(ROOT_DIR + folder + resourceName);
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             byte[] buffer = new byte[1024];

@@ -257,7 +257,7 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
     }
 
     @Override
-    public void createDomain(final String domain) {
+    public void createDomain(final String domain, final String resourceImgFolder) {
         if (domain != null) {
             String template = getTemplate().replace("%DOMAIN%", domain);
             Stack<String> commands = new Stack();
@@ -265,7 +265,7 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
                     "/etc/apache2/sites-available/") + domain + ".conf";
             String command1 = "echo '" + template + "' >> " + filename;
             commands.push(command1);
-            addAdditionalCommands(commands, template);
+            addAdditionalCommands(commands, template, resourceImgFolder);
             while (!commands.empty()) {
                 execute(commands.firstElement());
                 commands.remove(0);
@@ -273,7 +273,8 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
         }
     }
 
-    private void addAdditionalCommands(final Stack<String> commands, final String template) {
+    private void addAdditionalCommands(final Stack<String> commands, final String template,
+            final String resourceImgFolder) {
         String docroot = getDocumentRoot(template);
         if (!docroot.endsWith("/")) {
             docroot += "/";
@@ -287,9 +288,9 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
             commands.push(command4);
             // all images will be stored in a global directory and not in a domain specific one
             // so that it is necessary to create the global directory and a symlink
-            String command5 = "mkdir -p " + RESOURCE_IMG_FOLDER;
+            String command5 = "mkdir -p " + ROOT_DIR + resourceImgFolder;
             commands.push(command5);
-            String command6 = "ln -s " + RESOURCE_IMG_FOLDER + " "
+            String command6 = "ln -s " + ROOT_DIR + resourceImgFolder + " "
                     + docroot + WebserverConnectorService.RESOURCE_TYPE_IMAGE;
             commands.push(command6);
         }
@@ -410,15 +411,16 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
     }
 
     @Override
-    public void createImageForCmfBinaryContent(final InputStream src, final String resourceName)
+    public void createImageForCmfBinaryContent(final InputStream src, final String resourceName,
+            final String resourceImgFolder)
             throws JSchException, SftpException {
-        String folder = RESOURCE_IMG_FOLDER + "/" + resourceName.substring(0, resourceName.lastIndexOf('/'));
+        String folder = ROOT_DIR + resourceImgFolder + "/" + resourceName.substring(0, resourceName.lastIndexOf('/'));
         String command = "mkdir -p " + folder;
         execute(command);
         ChannelSftp channel = (ChannelSftp) getSession().openChannel("sftp");
         channel.connect();
 
-        String path = RESOURCE_IMG_FOLDER + "/" + resourceName;
+        String path = ROOT_DIR + resourceImgFolder + "/" + resourceName;
         channel.put(src, path);
         channel.disconnect();
     }

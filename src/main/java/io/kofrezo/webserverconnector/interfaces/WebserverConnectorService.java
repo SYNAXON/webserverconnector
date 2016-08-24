@@ -22,8 +22,6 @@ public interface WebserverConnectorService {
     String DOMAIN_FILTER_ENABLED = "enabled";
     String DOMAIN_FILTER_DISABLED = "disabled";
 
-    String RESOURCE_IMG_FOLDER = "/var/www/cmf_images";
-
     /**
      * Returns an array of available domains.
      *
@@ -36,8 +34,9 @@ public interface WebserverConnectorService {
      * Creates a new domain - do nothing if already available.
      *
      * @param domain the name of the new domain
+     * @param resourceImgFolder cmf_images for edit mode or cmf_images_publish for publish mode
      */
-    void createDomain(final String domain);
+    void createDomain(final String domain, final String resourceImgFolder);
 
     /**
      * Deletes a domain with given name - do nothing if no available.
@@ -90,10 +89,11 @@ public interface WebserverConnectorService {
      *
      * @param src the src of the image file as an InputStream object
      * @param resourceName the name of image file
+     * @param resourceImgFolder cmf_images for edit mode or cmf_images_publish for publish mode
      * @throws JSchException exception will be thrown if anything goes wrong with the SSH protocol
      * @throws SftpException exception will be thrown if anything goes wrong while using the SFTP protocol
      */
-    void createImageForCmfBinaryContent(final InputStream src, final String resourceName)
+    void createImageForCmfBinaryContent(final InputStream src, final String resourceName, final String resourceImgFolder)
             throws JSchException, SftpException;
 
     /**

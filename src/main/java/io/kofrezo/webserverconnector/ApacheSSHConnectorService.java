@@ -9,7 +9,6 @@ import com.jcraft.jsch.SftpException;
 import io.kofrezo.webserverconnector.interfaces.WebserverConnectorService;
 import java.io.BufferedInputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Serializable;
@@ -20,6 +19,7 @@ import java.util.List;
 import java.util.Properties;
 import java.util.Set;
 import java.util.Stack;
+import java.util.Vector;
 import javax.annotation.PreDestroy;
 import javax.enterprise.context.RequestScoped;
 import javax.inject.Named;
@@ -389,25 +389,18 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
     private Set<String> readFilenames(final ChannelSftp channel, final String path, final String domain) {
         Set<String> fileNames =  new HashSet<>();
         try {
-            LOGGER.debug("readFilenames ->  path: " + path);
-            for (Object file : channel.ls(path)) {
-                String filename = getFilenameForLs(file.toString());
-                LOGGER.debug("readFilenames ->  filename: " + filename);
+            Vector<ChannelSftp.LsEntry> files = channel.ls(path);
+            for (ChannelSftp.LsEntry file : files) {
+                String filename = getFilenameForLs(file.getFilename());
                 if (!filename.equals(".") && !filename.equals("..")
                         && !filename.equals("wp") && !filename.equals("img")) {
-                    File f = new File(path + "/" + filename);
-                    if (f.isDirectory()) {
-                        LOGGER.debug("readFilenames ->  " + path + "/" + filename + " is diretory");
+                    if (file.getAttrs().isDir()) {
                         fileNames.addAll(readFilenames(channel, path + "/" + filename, domain));
 
-                    } else if (f.isFile()) {
-                        LOGGER.debug("readFilenames ->  " + path + "/" + filename + " is file");
+                    } else {
                         String qualifiedFilename = path + "/" + filename;
                         qualifiedFilename = qualifiedFilename.replaceAll(ROOT_DIR + domain + "/", "");
-                        LOGGER.debug("readFilenames ->  add: " + qualifiedFilename);
                         fileNames.add(qualifiedFilename);
-                    } else {
-                       LOGGER.debug("readFilenames ->  " + path + "/" + filename + " IGNORE");
                     }
                 }
             }

@@ -389,17 +389,22 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
     private Set<String> readFilenames(final ChannelSftp channel, final String path, final String domain) {
         Set<String> fileNames =  new HashSet<>();
         try {
+            LOGGER.debug("readFilenames ->  path: " + path);
             for (Object file : channel.ls(path)) {
                 String filename = getFilenameForLs(file.toString());
+                LOGGER.debug("readFilenames ->  filename: " + filename);
                 if (!filename.equals(".") && !filename.equals("..")
                         && !filename.equals("wp") && !filename.equals("img")) {
                     File f = new File(path + "/" + filename);
                     if (f.isDirectory()) {
+                        LOGGER.debug("readFilenames ->  " + path + "/" + filename + " is diretory");
                         fileNames.addAll(readFilenames(channel, path + "/" + filename, domain));
 
                     } else if (f.isFile()) {
+                        LOGGER.debug("readFilenames ->  " + path + "/" + filename + " is file");
                         String qualifiedFilename = path + "/" + filename;
                         qualifiedFilename = qualifiedFilename.replaceAll(ROOT_DIR + domain + "/", "");
+                        LOGGER.debug("readFilenames ->  add: " + qualifiedFilename);
                         fileNames.add(qualifiedFilename);
                     }
                 }

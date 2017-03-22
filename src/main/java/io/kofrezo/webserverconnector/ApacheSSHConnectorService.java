@@ -406,6 +406,8 @@ public class ApacheSSHConnectorService implements WebserverConnectorService, Ser
                         qualifiedFilename = qualifiedFilename.replaceAll(ROOT_DIR + domain + "/", "");
                         LOGGER.debug("readFilenames ->  add: " + qualifiedFilename);
                         fileNames.add(qualifiedFilename);
+                    } else {
+                       LOGGER.debug("readFilenames ->  " + path + "/" + filename + " IGNORE");
                     }
                 }
             }
